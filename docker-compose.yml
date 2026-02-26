@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - OUTPUT_DIR=/app/output
+      - FRONTEND_DIST_PATH=/app/frontend_dist
+      - TZ=America/Chicago
+    volumes:
+      # 持久化輸出目錄，確保生成的圖片可下載且不會隨容器重啟而消失
+      - ./output:/app/output
+    restart: unless-stopped
