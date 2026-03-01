@@ -20,6 +20,7 @@ export default function App() {
 
   const handleGenerateTopic = async () => {
     setError(null)
+    setTopic('') // 點擊 AI 產生題目時先清空原本的主題
     setIsGeneratingTopic(true)
     try {
       const t = await generateTopic()

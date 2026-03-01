@@ -8,12 +8,33 @@ export default function CopyButton({ text, label = '複製', className = '' }) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
+    const textToCopy = typeof text === 'string' ? text : String(text ?? '')
+    if (!textToCopy) return
+
     try {
-      await navigator.clipboard.writeText(text)
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(textToCopy)
+      } else {
+        throw new Error('Clipboard API not available')
+      }
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    } catch (err) {
-      console.error('Copy failed:', err)
+    } catch {
+      // Fallback: 非 HTTPS 或部分瀏覽器不支援 clipboard API 時使用 execCommand
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = textToCopy
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      } catch (err) {
+        console.error('Copy failed:', err)
+      }
     }
   }
 

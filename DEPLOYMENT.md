@@ -30,7 +30,7 @@ git init
 1. 登入 [GitHub](https://github.com)
 2. 點擊右上角 **+** → **New repository**
 3. 填寫：
-   - **Repository name**：`auto-post-agent`（或自訂名稱）
+   - **Repository name**：`auto-post-bot`（或自訂名稱）
    - **Description**：Threads 貼文自動生成 AI Agent
    - 選擇 **Private** 或 **Public**
    - **不要**勾選 "Add a README file"（專案已有）
@@ -49,7 +49,7 @@ git status
 git commit -m "Initial commit: Threads 貼文自動生成 AI Agent"
 
 # 將本地 main 分支連接到遠端（請將 YOUR_USERNAME 換成你的 GitHub 帳號）
-git remote add origin https://github.com/YOUR_USERNAME/auto-post-agent.git
+git remote add origin https://github.com/eason034056/auto-post-bot.git
 
 # 推送到 GitHub
 git branch -M main
@@ -59,7 +59,7 @@ git push -u origin main
 若使用 SSH：
 
 ```bash
-git remote add origin git@github.com:YOUR_USERNAME/auto-post-agent.git
+git remote add origin git@github.com:eason034056/auto-post-bot.git
 git push -u origin main
 ```
 
@@ -122,14 +122,14 @@ mkdir -p /opt/apps
 cd /opt/apps
 
 # 克隆專案（公開 repo 直接 clone；私有 repo 需設定 SSH key 或 token）
-git clone https://github.com/YOUR_USERNAME/auto-post-agent.git
-cd auto-post-agent
+git clone https://github.com/eason034056/auto-post-bot.git
+cd auto-post-bot
 ```
 
 **若為私有儲存庫**，可使用 Personal Access Token：
 
 ```bash
-git clone https://YOUR_TOKEN@github.com/YOUR_USERNAME/auto-post-agent.git
+git clone https://YOUR_TOKEN@github.com/eason034056/auto-post-bot.git
 ```
 
 或先在 VPS 上設定 SSH key，再使用 `git clone git@github.com:...`。
@@ -244,7 +244,7 @@ systemctl enable docker
 ### 更新部署（程式碼有變更時）
 
 ```bash
-cd /opt/apps/auto-post-agent
+cd /opt/apps/auto-post-bot
 git pull
 docker compose up -d --build
 ```
