@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 /**
  * CopyButton：一鍵複製文字到剪貼簿
- * 複製成功後短暫顯示「已複製」提示
+ * 複製成功後短暫顯示「已複製」提示，check icon 動畫
  */
 export default function CopyButton({ text, label = '複製', className = '' }) {
   const [copied, setCopied] = useState(false)
@@ -20,7 +20,6 @@ export default function CopyButton({ text, label = '複製', className = '' }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      // Fallback: 非 HTTPS 或部分瀏覽器不支援 clipboard API 時使用 execCommand
       try {
         const textarea = document.createElement('textarea')
         textarea.value = textToCopy
@@ -44,13 +43,13 @@ export default function CopyButton({ text, label = '複製', className = '' }) {
       onClick={handleCopy}
       className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
         copied
-          ? 'bg-green-500/20 text-green-700'
-          : 'bg-apple-gray-100 text-apple-gray-700 hover:bg-apple-gray-200'
+          ? 'bg-brand/20 text-brand-dark'
+          : 'bg-paper-200 text-ink-700 hover:bg-paper-300 hover:scale-105'
       } ${className}`}
     >
       {copied ? (
         <>
-          <span className="text-green-600">✓</span>
+          <span className="animate-check-pop text-brand-dark">✓</span>
           已複製
         </>
       ) : (

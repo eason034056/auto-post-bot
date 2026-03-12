@@ -48,6 +48,9 @@ def run_pipeline(
     return {
         "content": content,
         "hook": content.get("hook", ""),
+        "structure_name": content.get("structure_name", ""),
+        "content_strategy": content.get("content_strategy", []),
+        "discussion_question": content.get("discussion_question", ""),
         "image_paths": image_paths,
         "short_url": short_url,
         "pinned_comment_text": pinned_text,

@@ -63,6 +63,9 @@ class GenerateRequest(BaseModel):
 
 class GenerateResponse(BaseModel):
     hook: str
+    structure_name: str
+    content_strategy: list[str]
+    discussion_question: str
     pinned_comment_text: str
     short_url: str
     output_dir: str
@@ -112,6 +115,9 @@ def api_generate(req: GenerateRequest):
             short_url_str = shorten_url()
             pinned_text = get_pinned_comment_text(short_url_str)
             hook = MOCK_CONTENT.get("hook", "")
+            structure_name = MOCK_CONTENT.get("structure_name", "")
+            content_strategy = MOCK_CONTENT.get("content_strategy", [])
+            discussion_question = MOCK_CONTENT.get("discussion_question", "")
         else:
             result = run_pipeline(
                 topic=topic,
@@ -120,6 +126,9 @@ def api_generate(req: GenerateRequest):
             )
             subdir = result["output_dir"].name
             hook = result.get("hook", "")
+            structure_name = result.get("structure_name", "")
+            content_strategy = result.get("content_strategy", [])
+            discussion_question = result.get("discussion_question", "")
             pinned_text = result["pinned_comment_text"]
             short_url_str = result["short_url"]
             image_paths = result["image_paths"]
@@ -128,6 +137,12 @@ def api_generate(req: GenerateRequest):
         txt_path = OUTPUT_DIR / subdir / "post_text.txt"
         txt_path.parent.mkdir(parents=True, exist_ok=True)
         with open(txt_path, "w", encoding="utf-8") as f:
+            f.write("🏗️ 貼文結構：\n")
+            f.write(f"{structure_name}\n")
+            if content_strategy:
+                f.write("策略節奏：" + " → ".join(content_strategy) + "\n")
+            if discussion_question:
+                f.write(f"引導討論：{discussion_question}\n\n")
             f.write("📝 貼文開頭（鉤子）：\n")
             f.write(f"{hook}\n\n")
             f.write("📌 置頂留言內容：\n")
@@ -135,6 +150,9 @@ def api_generate(req: GenerateRequest):
 
         return GenerateResponse(
             hook=hook,
+            structure_name=structure_name,
+            content_strategy=content_strategy,
+            discussion_question=discussion_question,
             pinned_comment_text=pinned_text,
             short_url=short_url_str,
             output_dir=subdir,

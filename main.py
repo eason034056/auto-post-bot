@@ -27,6 +27,16 @@ logger = logging.getLogger(__name__)
 
 MOCK_CONTENT = {
     "hook": "孩子明明有在讀書，為什麼腦袋卻沒在吸收？很多家長都有這個疑問。",
+    "structure_name": "Threads 爆文六段結構",
+    "content_strategy": [
+        "好奇開頭",
+        "強烈難題",
+        "結果預告",
+        "對話還原",
+        "規律總結",
+        "引導思考",
+    ],
+    "discussion_question": "你家孩子也有明明讀很久，卻說不出到底學了什麼的時候嗎？",
     "slides": [
         {"type": "title", "content": "孩子明明讀書，\n為什麼腦袋卻沒在吸收？"},
         {
@@ -117,6 +127,14 @@ def main() -> None:
     # 存成 .txt 檔（與 terminal 顯示相同內容）
     txt_path = Path(result["output_dir"]) / "post_text.txt"
     with open(txt_path, "w", encoding="utf-8") as f:
+        f.write("🏗️ 貼文結構：\n")
+        f.write(f"{result['content'].get('structure_name', '')}\n")
+        strategy = result["content"].get("content_strategy", [])
+        if strategy:
+            f.write("策略節奏：" + " → ".join(strategy) + "\n")
+        discussion_question = result["content"].get("discussion_question", "")
+        if discussion_question:
+            f.write(f"引導討論：{discussion_question}\n\n")
         f.write("📝 貼文開頭（鉤子）：\n")
         f.write(f"{hook}\n\n")
         f.write("📌 置頂留言內容：\n")
