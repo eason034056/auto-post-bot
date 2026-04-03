@@ -59,6 +59,7 @@ class GenerateRequest(BaseModel):
     topic: str
     style: str | None = None
     mock: bool = False
+    research: bool = True
 
 
 class GenerateResponse(BaseModel):
@@ -123,6 +124,7 @@ def api_generate(req: GenerateRequest):
                 topic=topic,
                 output_subdir=None,
                 style_hint=req.style,
+                research=req.research,
             )
             subdir = result["output_dir"].name
             hook = result.get("hook", "")

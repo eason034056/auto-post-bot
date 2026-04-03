@@ -24,11 +24,11 @@ export async function getStyles() {
   return data.styles;
 }
 
-export async function generate({ topic, style = null, mock = false }) {
+export async function generate({ topic, style = null, mock = false, research = true }) {
   const res = await fetch(`${API_BASE}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ topic: topic.trim(), style, mock }),
+    body: JSON.stringify({ topic: topic.trim(), style, mock, research }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));

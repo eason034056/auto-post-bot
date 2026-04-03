@@ -13,6 +13,7 @@ export default function App() {
   const [topic, setTopic] = useState('')
   const [style, setStyle] = useState('')
   const [mock, setMock] = useState(false)
+  const [research, setResearch] = useState(true)
   const [isGeneratingTopic, setIsGeneratingTopic] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [result, setResult] = useState(null)
@@ -46,6 +47,7 @@ export default function App() {
         topic: t,
         style: style || null,
         mock,
+        research,
       })
       setResult(res)
     } catch (err) {
@@ -88,6 +90,8 @@ export default function App() {
                   onStyleChange={setStyle}
                   mock={mock}
                   onMockChange={setMock}
+                  research={research}
+                  onResearchChange={setResearch}
                   isGeneratingTopic={isGeneratingTopic}
                   disabled={isGenerating}
                 />

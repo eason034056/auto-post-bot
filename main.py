@@ -3,9 +3,10 @@
 Threads 貼文自動生成 AI Agent
 
 Usage:
-  python main.py "假讀書"
+  python main.py "假讀書"                   # 預設啟用深度研究
   python main.py --auto-topic              # AI 自動產生題目
   python main.py "孩子拖延怎麼辦" --style "情境描述"
+  python main.py "假讀書" --no-research    # 停用深度研究（純 AI 產生）
   python main.py "假讀書" --mock           # 使用範例內容測試（不需 API key）
   python main.py "假讀書" -v                # 詳細輸出（DEBUG）
 """
@@ -74,6 +75,7 @@ def main() -> None:
     parser.add_argument("topic", nargs="?", help="貼文題目（例如：假讀書）")
     parser.add_argument("--auto-topic", action="store_true", help="由 AI 自動產生題目")
     parser.add_argument("--style", help="開場風格（可選）", default=None)
+    parser.add_argument("--no-research", action="store_true", help="停用 Perplexity 深度研究（預設啟用）")
     parser.add_argument("--output", "-o", help="輸出資料夾名稱", default=None)
     parser.add_argument("--mock", action="store_true", help="使用範例內容測試（不需 API key）")
     parser.add_argument("-v", "--verbose", action="store_true", help="詳細輸出（DEBUG）")
@@ -117,6 +119,7 @@ def main() -> None:
             topic=topic,
             output_subdir=args.output,
             style_hint=args.style,
+            research=not args.no_research,
         )
 
     logger.info("完成！輸出目錄：%s", result["output_dir"])
@@ -140,6 +143,16 @@ def main() -> None:
         f.write("📌 置頂留言內容：\n")
         f.write(f"{pinned}\n")
     logger.info("貼文文字已存：%s", txt_path)
+
+    # 若有研究報告，另存為獨立檔案
+    research_report = result.get("research_report")
+    if research_report:
+        research_path = Path(result["output_dir"]) / "research_report.txt"
+        with open(research_path, "w", encoding="utf-8") as f:
+            f.write(f"深度研究報告：{topic}\n")
+            f.write("=" * 50 + "\n\n")
+            f.write(research_report)
+        logger.info("研究報告已存：%s", research_path)
 
     print(f"\n✅ 完成！輸出目錄：{result['output_dir']}")
     print(f"   圖片：{len(result['image_paths'])} 張")

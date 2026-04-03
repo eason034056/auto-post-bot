@@ -16,6 +16,8 @@ export default function TopicInput({
   onStyleChange,
   mock,
   onMockChange,
+  research,
+  onResearchChange,
   isGeneratingTopic,
   disabled,
 }) {
@@ -66,6 +68,27 @@ export default function TopicInput({
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
+      </div>
+
+      {/* 深度研究 */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={research}
+          onClick={() => onResearchChange(!research)}
+          disabled={disabled}
+          className={`relative h-8 w-14 rounded-full transition-all duration-300 ${
+            research ? 'bg-brand' : 'bg-paper-200'
+          }`}
+        >
+          <span
+            className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-paper transition-all duration-300 ${
+              research ? 'left-7' : 'left-1'
+            }`}
+          />
+        </button>
+        <span className="text-sm text-ink-600">深度研究（Perplexity 即時搜尋，提升內容品質）</span>
       </div>
 
       {/* Mock 模式 */}

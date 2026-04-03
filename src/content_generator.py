@@ -133,12 +133,31 @@ def _build_system_prompt(style_hint: str) -> str:
 如果題目本身不適合強烈故事，也仍要保留這 6 段節奏，但措辭可以更自然，不要出現模板感。"""
 
 
-def _build_user_prompt(topic: str) -> str:
-    return f"""請為以下題目撰寫一篇完整的 Threads 圖文貼文內容：
+def _build_user_prompt(topic: str, research_context: str | None = None) -> str:
+    # 基本 prompt
+    base = f"""請為以下題目撰寫一篇完整的 Threads 圖文貼文內容：
 
-**題目**：{topic}
+**題目**：{topic}"""
 
-請直接回傳 JSON，不要有其他說明文字。"""
+    # 💡 有研究報告時，注入真實數據讓 AI 寫作更有深度
+    if research_context:
+        base += f"""
+
+**以下是針對此主題的深度研究報告，請務必參考並融入你的貼文內容中：**
+
+========================================
+{research_context}
+========================================
+
+**使用研究報告的原則：**
+1. 優先引用報告中的「家長真實語言」作為 hook 和對話素材
+2. 用報告中的具體案例來寫 case_study，不要自己編
+3. 引用報告中的課綱資訊增加權威感
+4. 用報告中的情緒觸發點來設計好奇開頭
+5. 常見迷思可以作為「強烈難題」的素材"""
+
+    base += "\n\n請直接回傳 JSON，不要有其他說明文字。"
+    return base
 
 
 def _clean_model_response(text: str) -> str:
@@ -205,13 +224,18 @@ def _validate_content_payload(content: dict[str, Any]) -> dict[str, Any]:
     return content
 
 
-def generate_content(topic: str, style_hint: str | None = None) -> dict[str, Any]:
+def generate_content(
+    topic: str,
+    style_hint: str | None = None,
+    research_context: str | None = None,
+) -> dict[str, Any]:
     """
     Generate post content from a topic using OpenRouter (Claude Sonnet 4.6).
 
     Args:
         topic: The topic/theme for the post (e.g. "假讀書")
         style_hint: Optional override for opening style
+        research_context: Optional deep research report to enhance content quality
 
     Returns:
         Dict with "slides" array, each slide has type and content fields
@@ -220,7 +244,8 @@ def generate_content(topic: str, style_hint: str | None = None) -> dict[str, Any
         raise ValueError("OPENROUTER_API_KEY is required. Set it in .env")
 
     style = style_hint or random.choice(OPENING_STYLES)
-    logger.info("呼叫 OpenRouter：model=%s, style=%s, structure=%s", OPENROUTER_MODEL, style, DEFAULT_STRUCTURE_NAME)
+    has_research = "有研究報告" if research_context else "無研究報告"
+    logger.info("呼叫 OpenRouter：model=%s, style=%s, %s", OPENROUTER_MODEL, style, has_research)
 
     client = OpenAI(
         base_url=OPENROUTER_BASE_URL,
@@ -231,7 +256,7 @@ def generate_content(topic: str, style_hint: str | None = None) -> dict[str, Any
         model=OPENROUTER_MODEL,
         messages=[
             {"role": "system", "content": _build_system_prompt(style)},
-            {"role": "user", "content": _build_user_prompt(topic)},
+            {"role": "user", "content": _build_user_prompt(topic, research_context)},
         ],
         temperature=0.8,
     )

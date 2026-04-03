@@ -44,3 +44,9 @@ LINE_URL = "https://line.me/ti/p/~home-tutor-tw"
 # OpenRouter model
 OPENROUTER_MODEL = "anthropic/claude-sonnet-4.6"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+# Perplexity Sonar Pro（透過 OpenRouter 呼叫，用於深度研究）
+PERPLEXITY_MODEL = "perplexity/sonar-pro"
+
+# Google API key（預留給未來 Gemini Deep Research 等功能）
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
