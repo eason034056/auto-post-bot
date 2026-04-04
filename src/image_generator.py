@@ -6,6 +6,7 @@
 - 品牌綠色系 (#427A5B) 作為主色調
 """
 import logging
+import random
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,11 @@ BRAND_50  = (240, 247, 237)  # #f0f7ed  極淺綠
 DARK_BG    = (30, 41, 59)     # #1e293b  neutral-800
 LIGHT_BG   = BRAND_50         # #f0f7ed
 ACCENT_BG  = BRAND_500        # #427A5B  全屏主色
+
+# 漸層色對（top → bottom，營造深度感）
+DARK_GRAD   = ((22, 30, 45), (38, 50, 68))
+LIGHT_GRAD  = ((250, 248, 242), (236, 241, 230))
+ACCENT_GRAD = ((56, 110, 80), (76, 135, 100))
 
 WHITE      = (255, 255, 255)
 TEXT_DARK  = (30, 41, 59)     # #1e293b
@@ -169,10 +175,66 @@ def _get_slide_theme(slide_type: str, index: int, total: int) -> str:
     return "dark" if index % 2 == 0 else "light"
 
 
-def _create_canvas(theme: str) -> tuple[Image.Image, ImageDraw.ImageDraw]:
-    bg_color = {"dark": DARK_BG, "light": LIGHT_BG, "accent": ACCENT_BG}[theme]
-    img = Image.new("RGB", (IMG_W, IMG_H), bg_color)
+def _draw_gradient(img: Image.Image, color_top: tuple, color_bottom: tuple) -> None:
+    """繪製垂直線性漸層背景。"""
     draw = ImageDraw.Draw(img)
+    w, h = img.size
+    for i in range(h):
+        ratio = i / h
+        r = int(color_top[0] + (color_bottom[0] - color_top[0]) * ratio)
+        g = int(color_top[1] + (color_bottom[1] - color_top[1]) * ratio)
+        b = int(color_top[2] + (color_bottom[2] - color_top[2]) * ratio)
+        draw.line([(0, i), (w, i)], fill=(r, g, b))
+
+
+def _apply_noise(img: Image.Image, intensity: int = 12) -> None:
+    """加上微噪點紋理，營造類底片質感。
+
+    💡 在 1/4 解析度生成噪點再放大，效能比逐像素快 ~16 倍，
+    且放大的模糊效果反而更自然。
+    """
+    small_w, small_h = img.size[0] // 4, img.size[1] // 4
+    noise = Image.new("L", (small_w, small_h))
+    noise_pixels = noise.load()
+    for ny in range(small_h):
+        for nx in range(small_w):
+            noise_pixels[nx, ny] = 128 + random.randint(-intensity, intensity)
+    noise = noise.resize(img.size, Image.BILINEAR)
+    noise_rgb = Image.merge("RGB", [noise, noise, noise])
+    blended = Image.blend(img, noise_rgb, 0.06)
+    img.paste(blended)
+
+
+def _draw_decorations(img: Image.Image, draw: ImageDraw.ImageDraw, theme: str) -> None:
+    """加上微妙的幾何裝飾元素，增加視覺層次。"""
+    if theme == "dark":
+        # 右上角大半透明圓
+        circle_color = (38, 52, 72)
+        r = 280
+        draw.ellipse([IMG_W - r + 80, -r + 80, IMG_W + r + 80, r + 80], fill=circle_color)
+        # 左下角小裝飾圓
+        draw.ellipse([- 60, IMG_H - 180, 120, IMG_H - 0], fill=(35, 48, 66))
+    elif theme == "light":
+        # 右下角柔和大圓
+        circle_color = (228, 236, 218)
+        r = 320
+        draw.ellipse([IMG_W - r + 60, IMG_H - r + 60, IMG_W + r + 60, IMG_H + r + 60],
+                     fill=circle_color)
+    elif theme == "accent":
+        # 右上角稍亮圓
+        circle_color = (80, 145, 110)
+        r = 250
+        draw.ellipse([IMG_W - r + 100, -r + 100, IMG_W + r + 100, r + 100],
+                     fill=circle_color)
+
+
+def _create_canvas(theme: str) -> tuple[Image.Image, ImageDraw.ImageDraw]:
+    grad = {"dark": DARK_GRAD, "light": LIGHT_GRAD, "accent": ACCENT_GRAD}[theme]
+    img = Image.new("RGB", (IMG_W, IMG_H), grad[0])
+    _draw_gradient(img, grad[0], grad[1])
+    _apply_noise(img)
+    draw = ImageDraw.Draw(img)
+    _draw_decorations(img, draw, theme)
     return img, draw
 
 
@@ -243,9 +305,8 @@ def _draw_circle_badge(draw: ImageDraw.ImageDraw, number: int, cx: int, cy: int,
         fill=bg_color,
     )
     num_str = str(number)
-    tw = _text_width(draw, num_str, font)
-    th = _text_height(draw, num_str, font)
-    draw.text((cx - tw // 2, cy - th // 2), num_str, font=font, fill=text_color)
+    # 💡 anchor="mm" 讓 PIL 以 (cx, cy) 為中心自動對齊，避免手動計算 bbox 偏移
+    draw.text((cx, cy), num_str, font=font, fill=text_color, anchor="mm")
 
 
 def _draw_rounded_square_badge(draw: ImageDraw.ImageDraw, number: int, x: int, y: int,
@@ -258,9 +319,7 @@ def _draw_rounded_square_badge(draw: ImageDraw.ImageDraw, number: int, x: int, y
         fill=bg_color,
     )
     num_str = str(number)
-    tw = _text_width(draw, num_str, font)
-    th = _text_height(draw, num_str, font)
-    draw.text((x + (size - tw) // 2, y + (size - th) // 2), num_str, font=font, fill=text_color)
+    draw.text((x + size // 2, y + size // 2), num_str, font=font, fill=text_color, anchor="mm")
 
 
 def _draw_decorative_bar(draw: ImageDraw.ImageDraw, x: int, y: int, color: tuple) -> int:
@@ -539,6 +598,15 @@ def _draw_case_study_slide(img: Image.Image, draw: ImageDraw.ImageDraw, slide: d
         card_x = MARGIN
         card_w = IMG_W - MARGIN * 2
 
+        # 卡片陰影（偏移 4px，增加立體感）
+        shadow_color = (max(0, colors["card_bg"][0] - 25),
+                        max(0, colors["card_bg"][1] - 25),
+                        max(0, colors["card_bg"][2] - 25))
+        draw.rounded_rectangle(
+            [card_x + 3, y + 4, card_x + card_w + 3, y + card_h + 4],
+            radius=16,
+            fill=shadow_color,
+        )
         # 卡片底色（圓角矩形）
         draw.rounded_rectangle(
             [card_x, y, card_x + card_w, y + card_h],
@@ -628,22 +696,15 @@ def _draw_summary_slide(img: Image.Image, draw: ImageDraw.ImageDraw, slide: dict
 
 
 def _draw_cta_slide(img: Image.Image, draw: ImageDraw.ImageDraw, slide: dict, colors: dict) -> None:
-    """CTA 結尾頁：深色背景 + 置中大問句 + 副標題 + accent 膠囊按鈕 + 追蹤提示。
+    """CTA 結尾頁：固定內容，不受 AI 生成影響。
 
-    參考圖 7/7：置中白色大字問句 + 灰色副標 + accent 膠囊 CTA + 追蹤文字
+    深色背景 + 置中大標題 + 副標 + accent 膠囊按鈕 + 追蹤提示
     """
-    content = _replace_emoji(slide.get("content", ""))
-    lines = content.split("\n")
-
-    # 拆分：第一行=服務標題，中間=服務資訊，最後=CTA行
-    if len(lines) >= 2:
-        title_text = lines[0]
-        body_lines = lines[1:-1] if len(lines) > 2 else []
-        cta_line = lines[-1] if len(lines) > 1 else ""
-    else:
-        title_text = content
-        body_lines = []
-        cta_line = ""
+    # ⚠️ CTA 頁使用固定內容，確保品牌一致性
+    title_text = "青椒老師專業家教服務"
+    body_lines = ["服務地區: 新竹 | 台北", "專業領域: 國高中小家教媒合"]
+    cta_text = "點擊留言連結直接加入官方Line好友"
+    follow_text = "追蹤青椒老師看更多學習方法"
 
     title_font = _get_font(56, "black")
     body_font = _get_font(34)
@@ -661,11 +722,17 @@ def _draw_cta_slide(img: Image.Image, draw: ImageDraw.ImageDraw, slide: dict, co
     for line in body_lines:
         for wl in _wrap_text(draw, line, body_font, max_w):
             total_h += _text_height(draw, wl, body_font) + 10
-    if body_lines:
-        total_h += 40  # body 下間距
+    total_h += 40  # body 下間距
 
-    if cta_line:
-        total_h += 70 + 40  # 膠囊按鈕高度 + 間距
+    # CTA 按鈕高度
+    btn_pad_x, btn_pad_y = 48, 20
+    max_btn_content_w = max_w - btn_pad_x * 2
+    cta_wrapped = _wrap_text(draw, cta_text, cta_font, max_btn_content_w)
+    cta_line_heights = [_text_height(draw, wl, cta_font) for wl in cta_wrapped]
+    cta_line_spacing = 8
+    total_btn_text_h = sum(cta_line_heights) + cta_line_spacing * (len(cta_wrapped) - 1)
+    btn_h = total_btn_text_h + btn_pad_y * 2
+    total_h += btn_h + 40
 
     total_h += 30 + 24  # 追蹤提示
 
@@ -684,30 +751,32 @@ def _draw_cta_slide(img: Image.Image, draw: ImageDraw.ImageDraw, slide: dict, co
             tw = _text_width(draw, wl, body_font)
             draw.text(((IMG_W - tw) // 2, y), wl, font=body_font, fill=colors["muted"])
             y += _text_height(draw, wl, body_font) + 10
-    if body_lines:
-        y += 40
+    y += 40
 
-    # 膠囊 CTA 按鈕
-    if cta_line:
-        btn_text = cta_line
-        btn_tw = _text_width(draw, btn_text, cta_font)
-        btn_th = _text_height(draw, btn_text, cta_font)
-        btn_pad_x, btn_pad_y = 48, 20
-        btn_w = btn_tw + btn_pad_x * 2
-        btn_h = btn_th + btn_pad_y * 2
-        btn_x = (IMG_W - btn_w) // 2
-        draw.rounded_rectangle(
-            [btn_x, y, btn_x + btn_w, y + btn_h],
-            radius=btn_h // 2,
-            fill=colors["badge_bg"],
-        )
-        draw.text((btn_x + btn_pad_x, y + btn_pad_y), btn_text, font=cta_font, fill=colors["badge_text"])
-        y += btn_h + 40
+    # 膠囊 CTA 按鈕（文字用 anchor="mm" 垂直置中）
+    max_line_w = max(_text_width(draw, wl, cta_font) for wl in cta_wrapped)
+    btn_w = max_line_w + btn_pad_x * 2
+    btn_x = (IMG_W - btn_w) // 2
+    btn_radius = btn_h // 2 if len(cta_wrapped) == 1 else 24
+    draw.rounded_rectangle(
+        [btn_x, y, btn_x + btn_w, y + btn_h],
+        radius=btn_radius,
+        fill=colors["badge_bg"],
+    )
+    # 💡 用 anchor="mm" 確保文字在按鈕內垂直置中
+    if len(cta_wrapped) == 1:
+        draw.text((IMG_W // 2, y + btn_h // 2), cta_wrapped[0],
+                  font=cta_font, fill=colors["badge_text"], anchor="mm")
+    else:
+        text_y = y + btn_pad_y
+        for i, wl in enumerate(cta_wrapped):
+            draw.text((IMG_W // 2, text_y + cta_line_heights[i] // 2), wl,
+                      font=cta_font, fill=colors["badge_text"], anchor="mm")
+            text_y += cta_line_heights[i] + cta_line_spacing
+    y += btn_h + 40
 
     # 追蹤提示
-    follow_text = "追蹤青椒老師看更多學習方法"
-    ftw = _text_width(draw, follow_text, follow_font)
-    draw.text(((IMG_W - ftw) // 2, y), follow_text, font=follow_font, fill=colors["muted"])
+    draw.text((IMG_W // 2, y), follow_text, font=follow_font, fill=colors["muted"], anchor="mt")
 
 
 # ── sanitize ──────────────────────────────────────────────────
