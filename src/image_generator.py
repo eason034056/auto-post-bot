@@ -430,8 +430,13 @@ def _draw_bullet_list_slide(img: Image.Image, draw: ImageDraw.ImageDraw, slide: 
         line_block_h = sum(_text_height(draw, wl, item_font) + 8 for wl in wrapped)
         total_h += max(badge_radius * 2, line_block_h) + 28
 
-    if slide.get("footer"):
-        total_h += 28 + _text_height(draw, slide["footer"], footer_font)
+    # 💡 footer 要過 _wrap_text，且高度要逐行累加，不然會超寬被裁掉
+    footer_text = _replace_emoji(slide["footer"]) if slide.get("footer") else ""
+    footer_lines = _wrap_text(draw, footer_text, footer_font, max_w) if footer_text else []
+    if footer_lines:
+        total_h += 28
+        for fl in footer_lines:
+            total_h += _text_height(draw, fl, footer_font) + 8
 
     y = (IMG_H - total_h) // 2
 
@@ -456,10 +461,12 @@ def _draw_bullet_list_slide(img: Image.Image, draw: ImageDraw.ImageDraw, slide: 
             y += _text_height(draw, wl, item_font) + 8
         y += 20
 
-    # footer
-    if slide.get("footer"):
+    # footer（逐行繪製，與 total_h 計算對齊）
+    if footer_lines:
         y += 8
-        draw.text((MARGIN, y), _replace_emoji(slide["footer"]), font=footer_font, fill=colors["muted"])
+        for fl in footer_lines:
+            draw.text((MARGIN, y), fl, font=footer_font, fill=colors["muted"])
+            y += _text_height(draw, fl, footer_font) + 8
 
 
 def _draw_numbered_slide(img: Image.Image, draw: ImageDraw.ImageDraw, slide: dict, colors: dict) -> None:
@@ -562,9 +569,13 @@ def _draw_case_study_slide(img: Image.Image, draw: ImageDraw.ImageDraw, slide: d
     card_content_x = MARGIN + card_border_w + card_pad + 8
     card_max_w = IMG_W - card_content_x - MARGIN - card_pad
 
+    # 💡 section label 是固定 tag「實際案例」，不是 AI 回傳的 title。
+    #    原版拿 title 同字串畫兩次（小+大）會造成視覺重複；固定 tag 能兼顧類別辨識與層次感。
+    section_label = "實際案例"
+
     total_h = 0
     if title:
-        total_h += _text_height(draw, title, label_font) + 16  # section label
+        total_h += _text_height(draw, section_label, label_font) + 16
         for wl in _wrap_text(draw, title, title_font, max_w):
             total_h += _text_height(draw, wl, title_font) + 10
         total_h += 30
@@ -581,12 +592,11 @@ def _draw_case_study_slide(img: Image.Image, draw: ImageDraw.ImageDraw, slide: d
 
     y = max(160, (IMG_H - total_h) // 2)
 
-    # 段落標籤
+    # 段落標籤（固定 tag） + 大標題（AI 的 title）
     if title:
-        draw.text((MARGIN, y), title, font=label_font, fill=colors["label"])
-        y += _text_height(draw, title, label_font) + 16
+        draw.text((MARGIN, y), section_label, font=label_font, fill=colors["label"])
+        y += _text_height(draw, section_label, label_font) + 16
 
-        # 大標題
         for wl in _wrap_text(draw, title, title_font, max_w):
             draw.text((MARGIN, y), wl, font=title_font, fill=colors["title"])
             y += _text_height(draw, wl, title_font) + 10
