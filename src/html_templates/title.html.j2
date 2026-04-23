@@ -1,0 +1,91 @@
+{% extends "base.html.j2" %}
+
+{% block extra_style %}
+  /* ── title 封面：支援短(1-2行) / 長(3+行) 兩種內容 ──────── */
+  /* 💡 核心思路：不管 AI 給幾行，品牌辨識元素（eyebrow、accent hairline）
+         都一定要出現，視覺語彙不能因資料稀疏而流失 */
+
+  .slide-title .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding-top: 40px;
+  }
+  .slide-title .divider {
+    height: 1px;
+    background: var(--accent);
+  }
+
+  /* ── 短模式（1 行）：真正金句，居中巨大 pull-quote ────── */
+  .slide-title.is-short .main {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .slide-title.is-short .title {
+    font-size: 104px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    white-space: pre-line;
+  }
+  .slide-title.is-short .divider {
+    width: 120px;
+    margin: 56px 0;
+  }
+
+  /* ── 長模式（2+ 行）：左對齊 editorial ────────────────── */
+  .slide-title.is-long .main {
+    justify-content: center;
+  }
+  .slide-title.is-long .title {
+    /* ⚠️ 從 88px 降到 72px：AI 主標常落在 10-12 字，
+           88px 下 880px 版面放不下 12 字會孤字換行 */
+    font-size: 72px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    white-space: pre-line;
+    /* 💡 text-wrap: balance：萬一真的太長換行，瀏覽器會自動平衡每行字數，
+           消滅「孤字單獨掉一行」的災難 */
+    text-wrap: balance;
+  }
+  .slide-title.is-long .divider {
+    width: 80px;
+    margin: 48px 0 36px;
+  }
+  .slide-title.is-long .subtitle {
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+    white-space: pre-line;
+    text-wrap: balance;
+  }
+{% endblock %}
+
+{% block content %}
+<div class="slide slide-title {{ 'is-short' if is_short else 'is-long' }}">
+  <div class="eyebrow">{{ eyebrow }}</div>
+
+  <div class="main">
+    {% if is_short %}
+      <div class="divider"></div>
+      <h1 class="title">{{ title_lines | join('\n') }}</h1>
+      <div class="divider"></div>
+    {% else %}
+      <h1 class="title">{{ title_lines | join('\n') }}</h1>
+      <div class="divider"></div>
+      <p class="subtitle">{{ subtitle_lines | join('\n') }}</p>
+    {% endif %}
+  </div>
+
+  <div class="page-meta">
+    <span class="brand">青椒老師</span>
+    <span>{{ "%02d"|format(index) }} / {{ "%02d"|format(total) }}</span>
+  </div>
+</div>
+{% endblock %}

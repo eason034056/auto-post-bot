@@ -1,0 +1,94 @@
+{% extends "base.html.j2" %}
+
+{% block extra_style %}
+  /* ── numbered：方法/步驟頁 ─────────────────────────────── */
+  /* 💡 editorial 手法：右上角放一個巨大的鏤空數字當視覺錨點，
+         這比舊版的方形 badge 有十倍層次感 */
+  .slide-numbered .big-num {
+    position: absolute;
+    top: 120px;
+    right: 100px;
+    font-size: 240px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: transparent;
+    -webkit-text-stroke: 2px var(--accent);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+  }
+
+  .slide-numbered .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    /* ⚠️ 原本 justify-content: center 會讓標題被推到視覺重心偏下，
+           改成 flex-start + padding-top 讓標題緊接著右上大數字出現 */
+    justify-content: flex-start;
+    padding-top: 240px;  /* 大數字下緣 ~ 360px，留些呼吸空間 */
+  }
+
+  .slide-numbered .title {
+    font-size: 56px;
+    font-weight: 900;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 36px;
+    white-space: pre-line;
+  }
+
+  .slide-numbered .content {
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1.75;
+    color: var(--ink-soft);
+    white-space: pre-line;
+  }
+
+  .slide-numbered .example {
+    margin-top: 44px;
+    padding-top: 28px;
+    border-top: 1px solid var(--hairline);
+  }
+  .slide-numbered .example-label {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .slide-numbered .example-body {
+    font-size: 26px;
+    font-weight: 400;
+    line-height: 1.7;
+    color: var(--ink-mute);
+    white-space: pre-line;
+  }
+{% endblock %}
+
+{% block content %}
+<div class="slide slide-numbered">
+  <div class="eyebrow">{{ tag if tag else "方法" }}</div>
+
+  <div class="big-num">{{ "%02d"|format(number) }}</div>
+
+  <div class="main">
+    {% if title %}<h2 class="title">{{ title }}</h2>{% endif %}
+    {% if content %}<p class="content">{{ content }}</p>{% endif %}
+
+    {% if example %}
+    <div class="example">
+      <div class="example-label">例如</div>
+      <div class="example-body">{{ example }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="page-meta">
+    <span class="brand">青椒老師</span>
+    <span>{{ "%02d"|format(index) }} / {{ "%02d"|format(total) }}</span>
+  </div>
+</div>
+{% endblock %}

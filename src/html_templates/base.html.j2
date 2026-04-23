@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<style>
+  /* ── 字型載入（本地檔案，避免網路依賴） ───────────────────────────
+     💡 透過 file:// 協定載入本地 OTF，瀏覽器會把字型注入渲染引擎 */
+  @font-face {
+    font-family: 'Noto Sans CJK TC';
+    src: url('file://{{ fonts_dir }}/NotoSansCJKtc-Regular.otf') format('opentype');
+    font-weight: 400;
+    font-display: block;
+  }
+  @font-face {
+    font-family: 'Noto Sans CJK TC';
+    src: url('file://{{ fonts_dir }}/NotoSansCJKtc-Bold.otf') format('opentype');
+    font-weight: 700;
+    font-display: block;
+  }
+  @font-face {
+    font-family: 'Noto Sans CJK TC';
+    src: url('file://{{ fonts_dir }}/NotoSansCJKtc-Black.otf') format('opentype');
+    font-weight: 900;
+    font-display: block;
+  }
+
+  /* ── 設計系統 tokens（極簡高級） ─────────────────────────────── */
+  :root {
+    --bg: #FAFAF7;          /* 米白紙感底色 */
+    --ink: #1a1a1a;         /* 近黑，不刺眼 */
+    --ink-soft: #404040;    /* 次級文字 */
+    --ink-mute: #8a8a85;    /* 提示文字、頁碼 */
+    --accent: #427A5B;      /* 品牌綠，只用於 hairline 與重點 */
+    --hairline: #E5E5E0;    /* 極細分隔線 */
+
+    --pad-x: 100px;
+    --pad-y: 120px;
+  }
+
+  /* ── reset ──────────────────────────────────────────────────── */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 1080px;
+    height: 1350px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Noto Sans CJK TC', -apple-system, sans-serif;
+    /* 💡 font-feature-settings: "palt" 開啟中文比例字距，
+           讓標點符號後的空白更自然，是中文排版的高級感關鍵 */
+    font-feature-settings: "palt";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
+  }
+
+  /* ── slide 容器（所有 slide 共用的外框） ──────────────────── */
+  .slide {
+    width: 1080px;
+    height: 1350px;
+    padding: var(--pad-y) var(--pad-x);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ── 頂部小 label（品牌/分類標示） ───────────────────────── */
+  .eyebrow {
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: 0.32em;  /* ⚠️ 字距放大是高級感的關鍵，絕對不要省 */
+    color: var(--ink-mute);
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--hairline);
+    text-transform: uppercase;
+  }
+
+  /* ── 底部頁碼列（雜誌式） ────────────────────────────────── */
+  .page-meta {
+    position: absolute;
+    bottom: 80px;
+    left: var(--pad-x);
+    right: var(--pad-x);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 20px;
+    letter-spacing: 0.2em;
+    color: var(--ink-mute);
+    font-weight: 400;
+  }
+  .page-meta .brand {
+    color: var(--accent);  /* 品牌色的唯一點綴 */
+    font-weight: 700;
+  }
+
+  {% block extra_style %}{% endblock %}
+</style>
+</head>
+<body>
+  {% block content %}{% endblock %}
+</body>
+</html>

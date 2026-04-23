@@ -118,7 +118,7 @@ docker compose logs -f    # 查看日誌
 ## 輸出
 
 - 圖片：`output/{timestamp}/slide_01.png` ~ `slide_N.png`
-- 置頂留言文字：`點擊連結加入官方 LINE：{short_url}`
+- 置頂留言文字：`免費一對一家教配對歡迎點擊連結或QR Code加入官方 LINE：{short_url}`
 
 ## 背景圖
 

@@ -50,3 +50,8 @@ PERPLEXITY_MODEL = "perplexity/sonar-pro"
 
 # Google API key（預留給未來 Gemini Deep Research 等功能）
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+
+# ── Google Sheets 紀錄（可選，未設定時靜默略過） ──
+GOOGLE_SHEETS_SA_JSON_PATH = os.getenv("GOOGLE_SHEETS_SA_JSON_PATH", "")
+GOOGLE_SHEETS_ID = os.getenv("GOOGLE_SHEETS_ID", "")
+GOOGLE_SHEETS_TAB_NAME = os.getenv("GOOGLE_SHEETS_TAB_NAME", "Sheet1")

@@ -98,7 +98,7 @@ def main() -> None:
 
     if args.mock:
         from src.config import OUTPUT_DIR
-        from src.image_generator import generate_images
+        from src.html_image_generator import generate_images
         from src.short_url import get_pinned_comment_text, shorten_url
 
         logger.info("使用 mock 模式（不呼叫 API）")

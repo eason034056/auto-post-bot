@@ -7,6 +7,9 @@ __pycache__/
 .env
 .env.*
 !.env.example
+# ⚠️ 憑證檔絕對不要進 image — 即使未來有人寫 COPY . . 也要擋下
+secrets/
+*.sa.json
 output/
 frontend/node_modules/
 frontend/dist/

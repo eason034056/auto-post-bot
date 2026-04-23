@@ -12,16 +12,17 @@ RUN npm run build
 FROM python:3.13-slim
 WORKDIR /app
 
-# Install runtime deps (Pillow needs libjpeg, etc.) + tzdata for TZ env
+# tzdata for TZ env
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libjpeg62-turbo-dev \
-    zlib1g-dev \
-    libfreetype6-dev \
     tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Chromium + system deps for Playwright HTML renderer
+# 💡 --with-deps 會自動 apt-get install 所有 Chromium 需要的 lib（libnss3 等）
+RUN playwright install --with-deps chromium
 
 # Copy backend
 COPY api/ ./api/
@@ -31,9 +32,8 @@ COPY src/ ./src/
 # Copy frontend build
 COPY --from=frontend-builder /app/frontend/dist ./frontend_dist
 
-# Copy required assets (fonts, demo post backgrounds)
+# Copy required assets (fonts for CJK rendering via HTML templates)
 COPY fonts/ ./fonts/
-COPY ["demo post", "demo post/"]
 
 # Output dir - will be volume-mounted
 ENV OUTPUT_DIR=/app/output

@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 from src.config import setup_logging
 from src.config import OUTPUT_DIR
-from src.image_generator import generate_images
+from src.html_image_generator import generate_images
 from src.pipeline import run_pipeline
 from src.short_url import get_pinned_comment_text, shorten_url
 from src.content_generator import OPENING_STYLES
@@ -78,6 +78,16 @@ class ImagesResponse(BaseModel):
     images: list[str]
 
 
+class LogSheetsRequest(BaseModel):
+    subdir: str
+
+
+class LogSheetsResponse(BaseModel):
+    success: bool
+    message: str
+    already_logged: bool = False
+
+
 # --- Routes ---
 
 @app.get("/api/styles")
@@ -111,6 +121,8 @@ def api_generate(req: GenerateRequest):
 
     try:
         if req.mock:
+            from src.pipeline import _save_metadata
+
             subdir = datetime.now().strftime("%Y%m%d_%H%M%S")
             image_paths = generate_images(MOCK_CONTENT, output_subdir=subdir)
             short_url_str = shorten_url()
@@ -119,6 +131,23 @@ def api_generate(req: GenerateRequest):
             structure_name = MOCK_CONTENT.get("structure_name", "")
             content_strategy = MOCK_CONTENT.get("content_strategy", [])
             discussion_question = MOCK_CONTENT.get("discussion_question", "")
+            # mock 也存 metadata，讓使用者能測 log 按鈕
+            _save_metadata(
+                OUTPUT_DIR / subdir,
+                {
+                    "content": MOCK_CONTENT,
+                    "hook": hook,
+                    "structure_name": structure_name,
+                    "content_strategy": content_strategy,
+                    "discussion_question": discussion_question,
+                    "short_url": short_url_str,
+                    "pinned_comment_text": pinned_text,
+                    "output_dir": OUTPUT_DIR / subdir,
+                    "research_report": None,
+                },
+                topic=topic,
+                style_hint=req.style,
+            )
         else:
             result = run_pipeline(
                 topic=topic,
@@ -178,6 +207,14 @@ def api_get_images(subdir: str):
         if f.suffix.lower() == ".png"
     )
     return ImagesResponse(subdir=subdir, images=images)
+
+
+@app.post("/api/log-to-sheets", response_model=LogSheetsResponse)
+def api_log_to_sheets(req: LogSheetsRequest):
+    """使用者手動觸發：把指定 subdir 的貼文 metadata 寫入 Google Sheets。"""
+    from src.sheets_logger import log_from_metadata
+    result = log_from_metadata(req.subdir)
+    return LogSheetsResponse(**result)
 
 
 @app.get("/api/output/{subdir}/download-zip")

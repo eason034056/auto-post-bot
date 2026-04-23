@@ -57,3 +57,20 @@ export function getImageUrl(subdir, filename) {
 export function getDownloadZipUrl(subdir) {
   return `${API_BASE}/api/output/${subdir}/download-zip`;
 }
+
+/**
+ * 手動觸發：把此次生成記錄到 Google Sheets
+ * 回傳 { success, message, already_logged }
+ */
+export async function logToSheets(subdir) {
+  const res = await fetch(`${API_BASE}/api/log-to-sheets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subdir }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || '記錄失敗');
+  }
+  return res.json();
+}

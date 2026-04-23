@@ -82,4 +82,4 @@ def shorten_url(long_url: str = LINE_URL, api_key: str | None = None) -> str:
 
 def get_pinned_comment_text(short_url: str) -> str:
     """Format the pinned comment text with CTA and short URL."""
-    return f"點擊連結加入官方 LINE：{short_url}"
+    return f"免費一對一家教配對歡迎點擊連結或QR Code加入官方 LINE：{short_url}"

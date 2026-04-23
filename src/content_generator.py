@@ -58,6 +58,34 @@ DEFAULT_CONTENT_STRATEGY = [
 ]
 DEFAULT_DISCUSSION_QUESTION = "你家也出現過類似狀況嗎？最困擾你的地方是什麼？"
 
+# ── 內容結構池（Phase 3：破除千篇一律）──────────────────────
+# 💡 之前只有「六段結構」一種骨架，即使開場換 7 種，讀起來還是像同個人寫的。
+# 擴充成 4 種結構後，開場 × 結構 = 28 種變化，大幅降低樣板感。
+# ⚠️ 每個結構的 flow 會直接注入 prompt 當 content_strategy，也會出現在 log／前端，
+#    所以命名要維持「動詞開頭、6 字內」風格跟原本對齊。
+CONTENT_STRUCTURES: list[dict[str, Any]] = [
+    {
+        "name": "Threads 爆文六段結構",
+        "flow": ["好奇開頭", "強烈難題", "結果預告", "對話還原", "規律總結", "引導思考"],
+        "description": "經典爆文骨架：hook → 痛點 → 預告反轉 → 對話還原 → 規律 → CTA",
+    },
+    {
+        "name": "反差敘事結構",
+        "flow": ["驚人結果", "時光倒流", "關鍵轉折", "具體做法", "收束金句", "引導留言"],
+        "description": "倒敘：先拋結果再回溯原因，適合有戲劇性轉變的個案",
+    },
+    {
+        "name": "Q&A 拆解結構",
+        "flow": ["家長真實提問", "常見錯誤答案", "正確思路", "案例佐證", "行動邀請"],
+        "description": "Q&A 形式：直接回應家長疑問，破除錯誤認知，適合觀念型主題",
+    },
+    {
+        "name": "類型對照結構",
+        "flow": ["三種類型速寫", "各自盲點", "共通解法", "真實案例", "邀請對號入座"],
+        "description": "把家長／學生分 2-3 型各自描述，讀者會主動對號入座增加參與感",
+    },
+]
+
 # ── 禁用詞字串（注入 prompt）─────────────────────────────────
 
 
@@ -84,7 +112,16 @@ def _render_banned_block(data: dict) -> str:
 _BANNED_BLOCK = _render_banned_block(_banned_data)
 
 
-def _build_system_prompt(style_hint: str) -> str:
+def _build_system_prompt(style_hint: str, structure: dict[str, Any]) -> str:
+    # 💡 把選中的結構 flow 渲染成編號列表，注入 prompt 替代硬寫死的「六段結構」
+    structure_name = structure["name"]
+    structure_desc = structure.get("description", "")
+    flow_lines = "\n".join(
+        f"{i}. **{step}**" for i, step in enumerate(structure["flow"], start=1)
+    )
+    # JSON schema 用的 content_strategy 範例也要跟著換，不然模型會抄舊的
+    strategy_json = json.dumps(structure["flow"], ensure_ascii=False)
+
     return f"""你是「青椒老師」，清大交大家教老師團隊的社群夥伴，在 Threads 分享國中學習方法給家長。語氣是「LINE 群組跟熟識家長聊天」，不是教育專家訓話。
 
 ## 寫作原則（違反任一條 = 失敗）
@@ -94,6 +131,19 @@ def _build_system_prompt(style_hint: str) -> str:
 3. **段落跳躍**：用「欸你知道嗎」「後來我發現」「結果呢」這種口語，不要制式轉折詞
 4. **案例具體**：「那天他居然自己打開課本」打贏「孩子有進步」十條街
 5. **結尾不空**：禁「一起加油」「別猶豫」這種空話，丟具體問題引留言
+6. **寫得簡潔**：能用 10 字講完就不用 20 字；每張 slide 只講一件事
+
+## 禁抽象形容詞（機器感主因）
+
+AI 味最明顯的特徵就是形容詞堆砌。**禁止**使用下列空話類形容詞：
+「關鍵的、重要的、有效的、顯著的、明顯的、大幅、極大、革命性、突破性、全方位、全面、卓越、優異、極致」
+
+**每個好處要用具體畫面取代抽象形容**：
+- ❌「成績明顯提升」→ ✅「月考數學從 38 分爬到 67 分」
+- ❌「學習效率變高」→ ✅「以前一小時只寫兩題，現在半小時寫完一整張」
+- ❌「孩子變得更自律」→ ✅「晚上十點我去看，他自己還在訂正」
+
+看不到畫面就是 AI 寫的，要讓家長讀到能腦補出場景。
 
 ## AI 味特徵詞（看到任何一類就是 AI 文）
 
@@ -116,22 +166,40 @@ def _build_system_prompt(style_hint: str) -> str:
 - **權威顛覆型**：「[權威] 說了一句讓家長沉默的話…」→ 懸念
 - **故事開場**：第一句直接切入真實案例的具體場景
 
-## 六段結構（{DEFAULT_STRUCTURE_NAME}）
+## 今日結構：**{structure_name}**
 
-1. **好奇開頭** → hook（3-5 句，有反差感）
-2. **強烈難題** → 具體場景（月考紅字 38 分 > 成績不好）
-3. **結果預告** → 反直覺 X 因子，方向與第 2 段不同
-4. **對話還原** → 真實互動現場
-5. **規律總結** → 從個案抽出可複用規律
-6. **引導思考** → 留言鉤子 + CTA
+> {structure_desc}
+
+請按下列段落流程展開（依序對應 slide，不要跳順序）：
+
+{flow_lines}
 
 ## 版位對應
-- `slides[0]` = `title`（6-15 字，認知衝突感）
+- `slides[0]` = `title`（**主標每行 ≤ 10 字**，可拆 1-2 行製造認知衝突；**最後一行是副標** ≤ 15 字補述或 call-to-value；共 2-3 行用 `\n` 分隔。**嚴禁**主標單行超過 10 字，否則圖片會換行變醜）
 - 痛點段用 `bullet_list`
 - 中段至少一張 `summary` 或 `numbered` 先預告結果
-- 對話還原用 `case_study`
+- 有「對話／案例／轉折」類段落用 `case_study`
+- 有**醒目數據**（如成績變化、比例、時數）時用 `data` 單張放大震撼
+- 有**二元對立**論述（假 vs 真、錯 vs 對、以前 vs 現在）時用 `comparison`
 - 倒數第二張用 `summary` 收金句
 - **最後一張固定 `cta`**
+
+## 新版型使用時機（重要）
+**`data`** — 全篇最多 1 張，用來放「一看就記得」的關鍵數據。例：
+- 單數據（推薦）：`stats: [{{"value": "62 → 89", "label": "學生月考從 62 分提升到 89 分"}}]`
+- 多數據（並列）：`stats: [{{"value": "3 hr", "label": "..."}}, {{"value": "40 min", "label": "..."}}]`
+- `value` 要短（≤ 6 字符，含數字+單位），`label` 簡述情境（≤ 20 字）
+
+**`comparison`** — 全篇最多 1 張，用來做二元對照。例：
+- `left_label: "假讀書"`，`right_label: "真讀書"`
+- `rows: [{{"left": "眼睛從頭掃到尾", "right": "讀一段停一段"}}, ...]`
+- 每個 left/right cell ≤ 12 字；rows 3-5 列最佳
+
+## 章節標籤 tag（每張除 cta 外都必填）
+`tag` 是小標籤（出現在圖片頂端 eyebrow 區），**2-6 字**，用來標示章節屬性。可以：
+- **單中文**：「常見誤區」「方法」「問題」「學習心法」
+- **中英並陳**（推薦，更精緻）：「方法 / METHOD」「案例 / CASE」「金句 / TAKEAWAY」「觀點 / INSIGHT」
+tag 要與該 slide 類型吻合：numbered → 方法類、bullet_list → 問題/誤區類、case_study → 案例類、summary → 金句類、title → 主題領域類。
 
 ## CTA 原則（輕帶不強推）
 用「忙／沒時間」當台階，**不能暗示家長不會教**。收尾尊重：「想自己來或想找人幫忙都行」。
@@ -139,21 +207,23 @@ def _build_system_prompt(style_hint: str) -> str:
 ## JSON Schema（嚴格遵守）
 
 {{
-  "hook": "3-5 句純文字，有反差感",
-  "structure_name": "{DEFAULT_STRUCTURE_NAME}",
-  "content_strategy": ["好奇開頭","強烈難題","結果預告","對話還原","規律總結","引導思考"],
-  "discussion_question": "1-2 句，口語、具體、容易留言",
+  "hook": "**at most 5 句**純文字，有反差感",
+  "structure_name": "{structure_name}",
+  "content_strategy": {strategy_json},
+  "discussion_question": "**at most 2 句**，口語、具體、容易留言",
   "slides": [
-    {{"type": "title", "content": "6-15 字金句（可\\n換行）"}},
-    {{"type": "bullet_list", "title": "...", "items": ["..."], "footer": "可選"}},
-    {{"type": "numbered", "number": 1, "title": "...", "content": "...", "example": "不加『例如：』前綴"}},
-    {{"type": "case_study", "title": "...", "problem": "具體場景", "solution": "調整方法", "result": "具體細節"}},
-    {{"type": "summary", "content": "金句\\n可換行"}},
+    {{"type": "title", "tag": "學科領域 / 心法標籤", "content": "主標 2 行\\n副標 1 行（共 2-3 行，用 \\n 換行）"}},
+    {{"type": "bullet_list", "tag": "常見誤區", "title": "...", "items": ["..."], "footer": "可選"}},
+    {{"type": "numbered", "tag": "方法 / METHOD", "number": 1, "title": "...", "content": "...", "example": "不加『例如：』前綴"}},
+    {{"type": "data", "tag": "數據 / DATA", "stats": [{{"value": "62 → 89", "label": "情境描述 ≤ 20 字"}}], "source": "可選資料源"}},
+    {{"type": "comparison", "tag": "對比 / COMPARE", "title": "假讀書 vs 真讀書", "left_label": "假讀書", "right_label": "真讀書", "rows": [{{"left": "≤ 12 字", "right": "≤ 12 字"}}]}},
+    {{"type": "case_study", "tag": "案例 / CASE", "title": "...", "problem": "具體場景", "solution": "調整方法", "result": "具體細節"}},
+    {{"type": "summary", "tag": "金句 / TAKEAWAY", "content": "金句\\n可換行"}},
     {{"type": "cta", "content": "青椒老師專業家教服務\\n服務地區: 新竹 | 台北\\n專業領域: 國高中小家教媒合\\n點擊留言連結直接加入官方Line好友"}}
   ]
 }}
 
-請產出 6-10 張 slides，整體要有節奏起伏，不是從頭到尾一個語氣。"""
+請產出 **at most 10 張** slides（最少 6 張），整體要有節奏起伏，不是從頭到尾一個語氣。"""
 
 
 def _build_user_prompt(topic: str, research_context: str | None = None) -> str:
@@ -270,8 +340,16 @@ def generate_content(
         raise ValueError("OPENROUTER_API_KEY is required. Set it in .env")
 
     style = style_hint or random.choice(OPENING_STYLES)
+    # 💡 每次隨機挑一種結構，跟開場 style 正交，避免每篇骨架都一樣
+    structure = random.choice(CONTENT_STRUCTURES)
     has_research = "有研究報告" if research_context else "無研究報告"
-    logger.info("呼叫 OpenRouter：model=%s, style=%s, %s", OPENROUTER_MODEL, style, has_research)
+    logger.info(
+        "呼叫 OpenRouter：model=%s, style=%s, structure=%s, %s",
+        OPENROUTER_MODEL,
+        style,
+        structure["name"],
+        has_research,
+    )
 
     client = OpenAI(
         base_url=OPENROUTER_BASE_URL,
@@ -281,10 +359,17 @@ def generate_content(
     response = client.chat.completions.create(
         model=OPENROUTER_MODEL,
         messages=[
-            {"role": "system", "content": _build_system_prompt(style)},
+            {"role": "system", "content": _build_system_prompt(style, structure)},
             {"role": "user", "content": _build_user_prompt(topic, research_context)},
         ],
-        temperature=0.8,
+        temperature=0.85,
+        # 💡 frequency_penalty: 壓制重複出現的 token，降低「贅詞／套話循環」
+        frequency_penalty=0.4,
+        # 💡 presence_penalty: 鼓勵引入新詞彙，打破同質化語氣
+        presence_penalty=0.3,
+        # ⚠️ max_tokens 是硬截斷（不是軟性精簡），防止長度失控
+        # Claude Sonnet 4.6 預設會寫到停不下來；2500 tokens 約 = 6-10 張 slide 的上限
+        max_tokens=2500,
         # 💡 JSON Mode：強制模型輸出合法 JSON object，大幅降低解析失敗率
         # ⚠️ OpenRouter 對部分模型會忽略此參數；_clean_model_response 保留做 fallback
         response_format={"type": "json_object"},

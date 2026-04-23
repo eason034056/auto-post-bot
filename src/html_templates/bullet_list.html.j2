@@ -1,0 +1,87 @@
+{% extends "base.html.j2" %}
+
+{% block extra_style %}
+  /* ── bullet_list：編號清單頁 ────────────────────────────── */
+  .slide-list .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding-top: 56px;
+  }
+
+  .slide-list .title {
+    font-size: 60px;
+    font-weight: 900;
+    line-height: 1.22;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 72px;
+    white-space: pre-line;
+  }
+
+  /* 💡 每項列表用 grid 排列 — 左欄是編號，右欄是文字，
+         保證長短不一的項目編號垂直對齊 */
+  .slide-list .items {
+    display: flex;
+    flex-direction: column;
+  }
+  .slide-list .item {
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    gap: 24px;
+    padding: 26px 0;
+    border-top: 1px solid var(--hairline);
+    align-items: baseline;
+  }
+  .slide-list .item:last-child {
+    border-bottom: 1px solid var(--hairline);
+  }
+  .slide-list .item .num {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    /* ⚠️ tabular-nums 讓 01 02 10 等寬對齊，不會歪 */
+    font-variant-numeric: tabular-nums;
+  }
+  .slide-list .item .body {
+    font-size: 32px;
+    font-weight: 400;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+
+  .slide-list .footer {
+    margin-top: 48px;
+    font-size: 22px;
+    line-height: 1.7;
+    color: var(--ink-mute);
+    font-weight: 400;
+  }
+{% endblock %}
+
+{% block content %}
+<div class="slide slide-list">
+  <div class="eyebrow">{{ tag if tag else "重點整理" }}</div>
+
+  <div class="main">
+    {% if title %}<h2 class="title">{{ title }}</h2>{% endif %}
+
+    <div class="items">
+      {% for item in items %}
+      <div class="item">
+        <span class="num">{{ "%02d"|format(loop.index) }}</span>
+        <span class="body">{{ item }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if footer %}<p class="footer">{{ footer }}</p>{% endif %}
+  </div>
+
+  <div class="page-meta">
+    <span class="brand">青椒老師</span>
+    <span>{{ "%02d"|format(index) }} / {{ "%02d"|format(total) }}</span>
+  </div>
+</div>
+{% endblock %}

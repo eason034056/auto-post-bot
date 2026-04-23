@@ -1,0 +1,127 @@
+{% extends "base.html.j2" %}
+
+{% block extra_style %}
+  /* ── data：數據頁 ──────────────────────────────────────────
+     單數據 → 置中巨大；多數據 → hairline 分隔的橫列 */
+
+  .slide-data .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding-top: 40px;
+  }
+
+  /* ── 單數據模式（is-single）：巨大置中 ─────────────────── */
+  .slide-data.is-single .main {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .slide-data.is-single .stat-value {
+    /* ⚠️ tabular-nums 讓數字等寬，62 → 89 這種轉換對齊才乾淨 */
+    font-variant-numeric: tabular-nums;
+    font-size: 200px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--accent);
+    margin-bottom: 36px;
+  }
+  .slide-data.is-single .stat-divider {
+    width: 100px;
+    height: 1px;
+    background: var(--ink);
+    margin-bottom: 36px;
+  }
+  .slide-data.is-single .stat-label {
+    font-size: 36px;
+    font-weight: 400;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 720px;
+    text-wrap: balance;
+  }
+  .slide-data.is-single .source {
+    margin-top: 56px;
+    font-size: 22px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+  }
+
+  /* ── 多數據模式（is-multi）：hairline 橫列 ───────────────── */
+  .slide-data.is-multi .title {
+    font-size: 52px;
+    font-weight: 900;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 56px;
+  }
+  .slide-data.is-multi .stats-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .slide-data.is-multi .stat-row {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 40px;
+    align-items: baseline;
+    padding: 32px 0;
+    border-top: 1px solid var(--hairline);
+  }
+  .slide-data.is-multi .stat-row:last-child {
+    border-bottom: 1px solid var(--hairline);
+  }
+  .slide-data.is-multi .stat-value {
+    font-variant-numeric: tabular-nums;
+    font-size: 72px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+  }
+  .slide-data.is-multi .stat-label {
+    font-size: 28px;
+    font-weight: 400;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+  .slide-data.is-multi .source {
+    margin-top: 44px;
+    font-size: 22px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+  }
+{% endblock %}
+
+{% block content %}
+<div class="slide slide-data {{ 'is-single' if is_single else 'is-multi' }}">
+  <div class="eyebrow">{{ tag if tag else "數據 / DATA" }}</div>
+
+  <div class="main">
+    {% if is_single %}
+      {% set s = stats[0] %}
+      <div class="stat-value">{{ s.value }}</div>
+      <div class="stat-divider"></div>
+      <div class="stat-label">{{ s.label }}</div>
+      {% if source %}<div class="source">源：{{ source }}</div>{% endif %}
+    {% else %}
+      {% if title %}<h2 class="title">{{ title }}</h2>{% endif %}
+      <div class="stats-list">
+        {% for s in stats %}
+        <div class="stat-row">
+          <div class="stat-value">{{ s.value }}</div>
+          <div class="stat-label">{{ s.label }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if source %}<div class="source">源：{{ source }}</div>{% endif %}
+    {% endif %}
+  </div>
+
+  <div class="page-meta">
+    <span class="brand">青椒老師</span>
+    <span>{{ "%02d"|format(index) }} / {{ "%02d"|format(total) }}</span>
+  </div>
+</div>
+{% endblock %}

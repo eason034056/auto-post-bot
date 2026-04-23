@@ -1,0 +1,78 @@
+{% extends "base.html.j2" %}
+
+{% block extra_style %}
+  /* ── summary：金句頁（pull quote，雜誌跨頁感） ─────────── */
+  /* 💡 極簡高級不靠顏色反轉製造節奏，靠排版：
+         巨大引號 + 置中 + 超大字級 + 留白，就是 pull quote */
+  .slide-summary .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    /* ⚠️ 移除原本的 padding: 0 40px — 它把可用寬度從 880px 卡到 800px，
+           是「進去。」孤字的隱形元兇 */
+    position: relative;
+  }
+
+  .slide-summary .quote-open,
+  .slide-summary .quote-close {
+    /* ⚠️ 從 180px 降到 120px：原尺寸對短金句是框、對長句會擠壓 */
+    font-size: 120px;
+    font-weight: 900;
+    line-height: 0.8;
+    color: var(--accent);
+    user-select: none;
+  }
+  .slide-summary .quote-open {
+    align-self: flex-start;
+    margin-left: -12px;
+    margin-bottom: -20px;
+  }
+  .slide-summary .quote-close {
+    align-self: flex-end;
+    margin-right: -12px;
+    margin-top: -20px;
+  }
+
+  .slide-summary .quote-text {
+    /* ⚠️ 最終定 50px：880px 版面下可放 ~17 字/行，吞得下 16 字長句無孤字。
+           56px 時剛好超 2% 導致「進去。」掉一行 — 臨界值很殘酷 */
+    font-size: 50px;
+    font-weight: 900;
+    line-height: 1.5;
+    letter-spacing: -0.005em;
+    color: var(--ink);
+    white-space: pre-line;
+    text-wrap: balance;
+  }
+
+  .slide-summary .quote-body {
+    margin-top: 36px;
+    font-size: 26px;
+    font-weight: 400;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    white-space: pre-line;
+    text-wrap: balance;
+  }
+{% endblock %}
+
+{% block content %}
+<div class="slide slide-summary">
+  <div class="eyebrow">{{ tag if tag else "金句 / TAKEAWAY" }}</div>
+
+  <div class="main">
+    <div class="quote-open">「</div>
+    <div class="quote-text">{{ quote_text }}</div>
+    {% if quote_body %}<div class="quote-body">{{ quote_body }}</div>{% endif %}
+    <div class="quote-close">」</div>
+  </div>
+
+  <div class="page-meta">
+    <span class="brand">青椒老師</span>
+    <span>{{ "%02d"|format(index) }} / {{ "%02d"|format(total) }}</span>
+  </div>
+</div>
+{% endblock %}

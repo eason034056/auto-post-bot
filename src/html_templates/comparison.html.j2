@@ -1,0 +1,104 @@
+{% extends "base.html.j2" %}
+
+{% block extra_style %}
+  /* ── comparison：雙欄對比頁 ─────────────────────────────── */
+
+  .slide-compare .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding-top: 40px;
+  }
+
+  .slide-compare .title {
+    font-size: 52px;
+    font-weight: 900;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 48px;
+    text-wrap: balance;
+  }
+
+  /* 💡 grid-template-columns: 1fr 1px 1fr：
+        左欄 + 垂直 hairline + 右欄，三欄共用同一個 grid，
+        比多個 flex 容器組合更容易對齊橫列 */
+  .slide-compare .grid {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    row-gap: 0;
+  }
+
+  /* 垂直分隔線貫穿全 grid（絕對定位在中間） */
+  .slide-compare .vdivider {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    background: var(--hairline);
+    width: 1px;
+    justify-self: center;
+  }
+
+  .slide-compare .col-header {
+    padding: 20px 32px;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .slide-compare .col-header.left {
+    grid-column: 1;
+    color: var(--ink-mute);  /* 左欄是「負面」，低調灰 */
+  }
+  .slide-compare .col-header.right {
+    grid-column: 3;
+    color: var(--accent);    /* 右欄是「正面」，品牌綠 */
+    text-align: right;
+  }
+
+  .slide-compare .row-left,
+  .slide-compare .row-right {
+    padding: 24px 32px;
+    font-size: 28px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .slide-compare .row-left {
+    grid-column: 1;
+    /* ⚠️ 左欄文字也可以適度弱化，強化「錯」的視覺暗示 */
+    color: var(--ink-mute);
+  }
+  .slide-compare .row-right {
+    grid-column: 3;
+    text-align: right;
+    color: var(--ink);
+    font-weight: 700;
+  }
+{% endblock %}
+
+{% block content %}
+<div class="slide slide-compare">
+  <div class="eyebrow">{{ tag if tag else "對比 / COMPARE" }}</div>
+
+  <div class="main">
+    {% if title %}<h2 class="title">{{ title }}</h2>{% endif %}
+
+    <div class="grid">
+      <div class="col-header left">{{ left_label if left_label else "錯的做法" }}</div>
+      <div class="vdivider"></div>
+      <div class="col-header right">{{ right_label if right_label else "對的做法" }}</div>
+
+      {% for row in rows %}
+      <div class="row-left">{{ row.left }}</div>
+      <div class="row-right">{{ row.right }}</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="page-meta">
+    <span class="brand">青椒老師</span>
+    <span>{{ "%02d"|format(index) }} / {{ "%02d"|format(total) }}</span>
+  </div>
+</div>
+{% endblock %}

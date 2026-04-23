@@ -10,3 +10,6 @@ output/
 frontend/node_modules/
 frontend/dist/
 .DS_Store
+# Service Account JSON 與其他憑證（絕對不要進 git）
+secrets/
+*.sa.json

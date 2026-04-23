@@ -1,0 +1,79 @@
+{% extends "base.html.j2" %}
+
+{% block extra_style %}
+  /* ── cta：結尾行動頁 ─────────────────────────────────────── */
+  .slide-cta .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding-top: 40px;
+  }
+
+  .slide-cta .brand-name {
+    font-size: 60px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 40px;
+  }
+
+  .slide-cta .service {
+    font-size: 28px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    font-weight: 400;
+    margin-bottom: 72px;
+  }
+  .slide-cta .service .row {
+    display: block;
+  }
+
+  /* 💡 outline 按鈕（不是填滿綠色） — 極簡高級的 CTA 是節制的，
+         細邊框 + 小字 + 大量 padding 就夠了 */
+  .slide-cta .cta-btn {
+    display: inline-block;
+    padding: 22px 56px;
+    border: 1.5px solid var(--ink);
+    border-radius: 999px;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: 0.04em;
+  }
+
+  .slide-cta .follow {
+    margin-top: 56px;
+    font-size: 24px;
+    color: var(--ink-mute);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+  }
+{% endblock %}
+
+{% block content %}
+<div class="slide slide-cta">
+  <div class="eyebrow">關於我 / ABOUT</div>
+
+  <div class="main">
+    <h2 class="brand-name">青椒老師<br>專業家教服務</h2>
+
+    <div class="service">
+      <span class="row">服務地區　新竹 ・ 台北</span>
+      <span class="row">專業領域　國高中小家教媒合</span>
+    </div>
+
+    <div class="cta-btn">點擊留言連結 加入 LINE 好友</div>
+
+    <div class="follow">追蹤青椒老師　看更多學習方法</div>
+  </div>
+
+  <div class="page-meta">
+    <span class="brand">青椒老師</span>
+    <span>{{ "%02d"|format(index) }} / {{ "%02d"|format(total) }}</span>
+  </div>
+</div>
+{% endblock %}

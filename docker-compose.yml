@@ -9,7 +9,11 @@ services:
       - OUTPUT_DIR=/app/output
       - FRONTEND_DIST_PATH=/app/frontend_dist
       - TZ=America/Chicago
+      # 💡 GOOGLE_SHEETS_SA_JSON_PATH 直接沿用 .env 裡的相對路徑
+      #    容器內的 PROJECT_ROOT=/app，相對路徑 secrets/sa.json → /app/secrets/sa.json
     volumes:
       # 持久化輸出目錄，確保生成的圖片可下載且不會隨容器重啟而消失
       - ./output:/app/output
+      # Service Account JSON 以唯讀方式掛進容器（不 COPY，避免憑證進 image）
+      - ./secrets:/app/secrets:ro
     restart: unless-stopped

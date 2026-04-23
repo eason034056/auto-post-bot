@@ -1,15 +1,49 @@
 """Main pipeline: topic -> (research) -> content -> images -> short URL."""
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
 
 from .config import OUTPUT_DIR
 from .content_generator import generate_content
-from .image_generator import generate_images
+from .html_image_generator import generate_images
 from .researcher import is_research_available, run_research
 from .short_url import get_pinned_comment_text, shorten_url
 
 logger = logging.getLogger(__name__)
+
+
+def _save_metadata(
+    output_dir: Path,
+    result: dict,
+    topic: str,
+    style_hint: str | None,
+) -> None:
+    """存 _metadata.json 供之後使用者手動觸發 Sheets 紀錄用。
+
+    💡 存在本地而非當場寫 Sheets，讓「生成 → 要不要記錄」變成兩個獨立動作，
+       配合使用者真實工作流（並非每篇都發、常會重生）。
+    """
+    meta = {
+        "topic": topic,
+        "opening_style": style_hint or "auto",
+        "hook": result.get("hook", ""),
+        "structure_name": result.get("structure_name", ""),
+        "content_strategy": result.get("content_strategy", []),
+        "discussion_question": result.get("discussion_question", ""),
+        "short_url": result.get("short_url", ""),
+        "pinned_comment_text": result.get("pinned_comment_text", ""),
+        "research_report": result.get("research_report"),
+        "slides": result.get("content", {}).get("slides", []),
+        "output_dir": str(result.get("output_dir", "")),
+        "logged_to_sheets": False,  # 由 /api/log-to-sheets 成功後改成 True
+    }
+    meta_path = output_dir / "_metadata.json"
+    meta_path.write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    logger.info("metadata 已存：%s", meta_path)
 
 
 def run_pipeline(
@@ -66,9 +100,7 @@ def run_pipeline(
     short_url = shorten_url()
     pinned_text = get_pinned_comment_text(short_url)
 
-    logger.info("Pipeline 完成")
-
-    return {
+    result = {
         "content": content,
         "hook": content.get("hook", ""),
         "structure_name": content.get("structure_name", ""),
@@ -80,3 +112,9 @@ def run_pipeline(
         "output_dir": OUTPUT_DIR / subdir,
         "research_report": research_report,
     }
+
+    # 4. 存 metadata（不直接寫 Sheets — 由使用者後續手動觸發）
+    _save_metadata(OUTPUT_DIR / subdir, result, topic, style_hint)
+
+    logger.info("Pipeline 完成")
+    return result
