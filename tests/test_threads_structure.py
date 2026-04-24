@@ -79,7 +79,7 @@ class ContentValidationTests(unittest.TestCase):
 
 class PipelineMetadataTests(unittest.TestCase):
     @patch("src.pipeline.shorten_url", return_value="https://short.url/test")
-    @patch("src.pipeline.get_pinned_comment_text", return_value="免費一對一家教配對歡迎點擊連結或QR Code加入官方 LINE：https://short.url/test")
+    @patch("src.pipeline.get_pinned_comment_text", return_value="免費一對一家教配對歡迎直接私訊或點擊連結加入官方 LINE：https://short.url/test")
     @patch("src.pipeline.generate_images", return_value=[Path("output/demo/slide_01.png")])
     @patch("src.pipeline.generate_content")
     def test_run_pipeline_returns_structure_metadata(
@@ -113,7 +113,7 @@ class ApiResponseTests(unittest.TestCase):
                 "discussion_question": payload["discussion_question"],
                 "image_paths": [output_dir / "slide_01.png"],
                 "short_url": "https://short.url/test",
-                "pinned_comment_text": "免費一對一家教配對歡迎點擊連結或QR Code加入官方 LINE：https://short.url/test",
+                "pinned_comment_text": "免費一對一家教配對歡迎直接私訊或點擊連結加入官方 LINE：https://short.url/test",
                 "output_dir": output_dir,
             }
 
