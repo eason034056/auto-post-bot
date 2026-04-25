@@ -1,12 +1,19 @@
-"""Main pipeline: topic -> (research) -> content -> images -> short URL."""
+"""Main pipeline: topic -> (research) -> content -> images -> short URL.
+
+提供兩種介面：
+- run_pipeline_streaming(): generator，逐階段 yield 進度事件，給 SSE 端點 / 前端進度條使用
+- run_pipeline():            阻塞版，內部其實是 streaming 版的 drain wrapper（向下相容 CLI 與舊 API）
+"""
 import json
 import logging
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from .config import OUTPUT_DIR
 from .content_generator import generate_content
-from .html_image_generator import generate_images
+from .html_image_generator import _close_browser, render_slide
 from .researcher import is_research_available, run_research
 from .short_url import get_pinned_comment_text, shorten_url
 
@@ -46,75 +53,185 @@ def _save_metadata(
     logger.info("metadata 已存：%s", meta_path)
 
 
+# ── Streaming generator（SSE 端點主邏輯） ─────────────────────
+
+
+def run_pipeline_streaming(
+    topic: str,
+    output_subdir: str | None = None,
+    style_hint: str | None = None,
+    research: bool = False,
+) -> Iterator[dict[str, Any]]:
+    """逐階段 yield 進度事件的 pipeline 版本。
+
+    事件格式：
+        {"type": "progress", "phase": str, "step": int, "total": int, "message": str,
+         "sub_current": int?, "sub_total": int?}     # progress 事件
+        {"type": "complete", "result": dict}          # 最終結果（與 run_pipeline 回傳同形）
+        {"type": "error", "detail": str}              # 任何階段失敗
+
+    💡 圖片階段用「手動 iterate slides」實作 sub-progress（每張圖 yield 一次），
+       而不是包裝 generate_images 的 callback —— callback 改成 yield 需要 thread+queue
+       橋接，過於複雜；inline iterate 反而最直接。
+    """
+    try:
+        # 計算總階段數（research 是 optional）
+        will_research = research and is_research_available()
+        total_phases = 4 if will_research else 3
+        current_step = 0
+
+        logger.info("Streaming pipeline 啟動：題目=%s, 深度研究=%s", topic, "啟用" if will_research else "停用")
+
+        # === Phase: Research（可選）===
+        research_report: str | None = None
+        if research and not is_research_available():
+            logger.warning("研究功能不可用（OPENROUTER_API_KEY 未設定），跳過深度研究")
+
+        if will_research:
+            current_step += 1
+            yield {
+                "type": "progress",
+                "phase": "research",
+                "step": current_step,
+                "total": total_phases,
+                "message": "深度研究中（Perplexity 多輪搜尋，約 3-5 分鐘）...",
+            }
+            research_report = run_research(topic)
+            yield {
+                "type": "progress",
+                "phase": "research_done",
+                "step": current_step,
+                "total": total_phases,
+                "message": (
+                    f"研究完成（{len(research_report)} 字）"
+                    if research_report
+                    else "研究失敗，將使用純 AI 撰寫"
+                ),
+            }
+
+        # === Phase: Content ===
+        current_step += 1
+        yield {
+            "type": "progress",
+            "phase": "content",
+            "step": current_step,
+            "total": total_phases,
+            "message": "產生貼文內容（Claude Sonnet）...",
+        }
+        content = generate_content(
+            topic, style_hint=style_hint, research_context=research_report
+        )
+        slides = content.get("slides", [])
+        yield {
+            "type": "progress",
+            "phase": "content_done",
+            "step": current_step,
+            "total": total_phases,
+            "message": f"內容產生完成（{len(slides)} 張投影片）",
+        }
+
+        # === Phase: Images（含 sub-progress）===
+        current_step += 1
+        subdir = output_subdir or datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_dir = OUTPUT_DIR / subdir
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        slides_total = len(slides)
+        image_paths: list[Path] = []
+
+        yield {
+            "type": "progress",
+            "phase": "images",
+            "step": current_step,
+            "total": total_phases,
+            "sub_current": 0,
+            "sub_total": slides_total,
+            "message": f"產生圖片 0/{slides_total}（Playwright 啟動中）...",
+        }
+
+        try:
+            for i, slide in enumerate(slides):
+                out_path = out_dir / f"slide_{i + 1:02d}.png"
+                render_slide(slide, i, slides_total, out_path)
+                image_paths.append(out_path)
+                yield {
+                    "type": "progress",
+                    "phase": "images",
+                    "step": current_step,
+                    "total": total_phases,
+                    "sub_current": i + 1,
+                    "sub_total": slides_total,
+                    "message": f"產生圖片 {i + 1}/{slides_total}（{slide.get('type', '')}）",
+                }
+        finally:
+            # ⚠️ 一定要關 browser，避免 Chromium 子進程殘留
+            _close_browser()
+
+        # === Phase: Short URL ===
+        current_step += 1
+        yield {
+            "type": "progress",
+            "phase": "short_url",
+            "step": current_step,
+            "total": total_phases,
+            "message": "產生置頂留言短網址...",
+        }
+        short_url = shorten_url()
+        pinned_text = get_pinned_comment_text(short_url)
+
+        # === 組裝結果 + 寫 metadata ===
+        result: dict[str, Any] = {
+            "content": content,
+            "hook": content.get("hook", ""),
+            "structure_name": content.get("structure_name", ""),
+            "content_strategy": content.get("content_strategy", []),
+            "discussion_question": content.get("discussion_question", ""),
+            "image_paths": image_paths,
+            "short_url": short_url,
+            "pinned_comment_text": pinned_text,
+            "output_dir": OUTPUT_DIR / subdir,
+            "research_report": research_report,
+        }
+        _save_metadata(OUTPUT_DIR / subdir, result, topic, style_hint)
+
+        logger.info("Streaming pipeline 完成")
+        yield {"type": "complete", "result": result}
+
+    except Exception as e:  # noqa: BLE001 — 任何階段失敗都要轉成 error 事件
+        logger.exception("Streaming pipeline 失敗")
+        yield {"type": "error", "detail": str(e)}
+
+
+# ── 阻塞版（向下相容）──────────────────────────────────────────
+
+
 def run_pipeline(
     topic: str,
     output_subdir: str | None = None,
     style_hint: str | None = None,
     research: bool = False,
 ) -> dict:
+    """阻塞版 pipeline：drain streaming generator，回傳最終 result。
+
+    💡 為什麼這樣寫：CLI 與舊的 /api/generate 不需要進度，但邏輯應該與
+    streaming 版完全一致 —— 用 drain 模式自動繼承所有改動，不會雙軌維護。
     """
-    Run full pipeline: (optional research) -> generate content -> images -> short URL.
+    final_result: dict | None = None
+    error_detail: str | None = None
 
-    Args:
-        topic: Post topic (e.g. "假讀書")
-        output_subdir: Optional output folder name
-        style_hint: Optional opening style override
-        research: If True, run Perplexity deep research before content generation
+    for event in run_pipeline_streaming(
+        topic,
+        output_subdir=output_subdir,
+        style_hint=style_hint,
+        research=research,
+    ):
+        if event.get("type") == "complete":
+            final_result = event["result"]
+        elif event.get("type") == "error":
+            error_detail = event.get("detail", "unknown error")
 
-    Returns:
-        Dict with: content, image_paths, short_url, pinned_comment_text, research_report
-    """
-    logger.info("開始 pipeline：題目=%s, 深度研究=%s", topic, "啟用" if research else "停用")
-
-    # 0. Deep research (optional)
-    research_report = None
-    if research:
-        if is_research_available():
-            total_steps = 4
-            logger.info("步驟 1/%d：Perplexity 深度研究...", total_steps)
-            research_report = run_research(topic)
-            if research_report:
-                logger.info("深度研究完成，報告 %d 字", len(research_report))
-            else:
-                logger.warning("深度研究失敗，將使用純 AI 產生內容")
-        else:
-            total_steps = 3
-            logger.warning("研究功能不可用（OPENROUTER_API_KEY 未設定），跳過深度研究")
-    else:
-        total_steps = 3
-
-    # 1. Generate content (with research context if available)
-    step = 2 if research else 1
-    logger.info("步驟 %d/%d：產生貼文內容...", step, total_steps)
-    content = generate_content(topic, style_hint=style_hint, research_context=research_report)
-
-    # 2. Generate images
-    subdir = output_subdir or datetime.now().strftime("%Y%m%d_%H%M%S")
-    step += 1
-    logger.info("步驟 %d/%d：產生圖片（輸出至 %s）...", step, total_steps, subdir)
-    image_paths = generate_images(content, output_subdir=subdir)
-
-    # 3. Short URL for pinned comment
-    step += 1
-    logger.info("步驟 %d/%d：產生短網址...", step, total_steps)
-    short_url = shorten_url()
-    pinned_text = get_pinned_comment_text(short_url)
-
-    result = {
-        "content": content,
-        "hook": content.get("hook", ""),
-        "structure_name": content.get("structure_name", ""),
-        "content_strategy": content.get("content_strategy", []),
-        "discussion_question": content.get("discussion_question", ""),
-        "image_paths": image_paths,
-        "short_url": short_url,
-        "pinned_comment_text": pinned_text,
-        "output_dir": OUTPUT_DIR / subdir,
-        "research_report": research_report,
-    }
-
-    # 4. 存 metadata（不直接寫 Sheets — 由使用者後續手動觸發）
-    _save_metadata(OUTPUT_DIR / subdir, result, topic, style_hint)
-
-    logger.info("Pipeline 完成")
-    return result
+    if error_detail:
+        raise RuntimeError(f"Pipeline 失敗：{error_detail}")
+    if final_result is None:
+        raise RuntimeError("Pipeline 未回傳 complete 事件（不應發生）")
+    return final_result

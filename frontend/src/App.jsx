@@ -3,35 +3,29 @@ import TopicInput from './components/TopicInput'
 import GenerateButton from './components/GenerateButton'
 import ProgressIndicator from './components/ProgressIndicator'
 import ResultPreview from './components/ResultPreview'
-import { generateTopic, generate } from './api'
+import { generateStream } from './api'
 
 /**
  * App：主應用
  * 整合題目輸入、生成、預覽流程，Editorial + 有機質感 UI
+ *
+ * 💡 題目候選的 state 已下放到 TopicInput 內（純 UI state，App 不需感知），
+ *    這裡只負責收最終選定的 topic 與後續生成流程。
+ *
+ * 💡 生成走 SSE 串流：每收到 progress 事件就更新 progress state，
+ *    傳給 ProgressIndicator 顯示分階段進度條，避免漫長等待時介面凍住。
  */
 export default function App() {
   const [topic, setTopic] = useState('')
   const [style, setStyle] = useState('')
   const [mock, setMock] = useState(false)
   const [research, setResearch] = useState(true)
-  const [isGeneratingTopic, setIsGeneratingTopic] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
-
-  const handleGenerateTopic = async () => {
-    setError(null)
-    setTopic('') // 點擊 AI 產生題目時先清空原本的主題
-    setIsGeneratingTopic(true)
-    try {
-      const t = await generateTopic()
-      setTopic(t)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setIsGeneratingTopic(false)
-    }
-  }
+  // 串流進度狀態（生成中才有值）
+  const [progress, setProgress] = useState(null)
+  const [startedAt, setStartedAt] = useState(null)
 
   const handleGenerate = async () => {
     const t = topic.trim()
@@ -41,19 +35,21 @@ export default function App() {
     }
     setError(null)
     setResult(null)
+    setProgress(null)
+    setStartedAt(Date.now())
     setIsGenerating(true)
     try {
-      const res = await generate({
-        topic: t,
-        style: style || null,
-        mock,
-        research,
-      })
+      const res = await generateStream(
+        { topic: t, style: style || null, mock, research },
+        (event) => setProgress(event),
+      )
       setResult(res)
     } catch (err) {
       setError(err.message)
     } finally {
       setIsGenerating(false)
+      setProgress(null)
+      setStartedAt(null)
     }
   }
 
@@ -85,14 +81,12 @@ export default function App() {
                 <TopicInput
                   topic={topic}
                   onTopicChange={setTopic}
-                  onGenerateTopic={handleGenerateTopic}
                   style={style}
                   onStyleChange={setStyle}
                   mock={mock}
                   onMockChange={setMock}
                   research={research}
                   onResearchChange={setResearch}
-                  isGeneratingTopic={isGeneratingTopic}
                   disabled={isGenerating}
                 />
               </div>
@@ -114,7 +108,15 @@ export default function App() {
 
               {isGenerating && (
                 <div className="mt-8 opacity-0 animate-fade-in-up animate-delay-100">
-                  <ProgressIndicator />
+                  <ProgressIndicator
+                    phase={progress?.phase ?? ''}
+                    step={progress?.step ?? 0}
+                    total={progress?.total ?? 0}
+                    subCurrent={progress?.sub_current ?? 0}
+                    subTotal={progress?.sub_total ?? 0}
+                    message={progress?.message ?? '正在啟動生成流程...'}
+                    startedAt={startedAt}
+                  />
                 </div>
               )}
             </>
