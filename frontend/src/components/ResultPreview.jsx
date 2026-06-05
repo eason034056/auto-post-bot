@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import CopyButton from './CopyButton'
 import ImageGallery from './ImageGallery'
-import { getImages, logToSheets } from '../api'
+import { getImages, getImageUrl, logToSheets } from '../api'
+
+// FB 封面圖檔名固定，與 Threads 輪播 slides 分流用
+const FB_COVER_FILENAME = 'fb_cover.png'
 
 /**
  * ResultPreview：結果預覽區
@@ -31,7 +34,8 @@ export default function ResultPreview({ result, onReset }) {
   useEffect(() => {
     if (result?.output_dir) {
       getImages(result.output_dir)
-        .then(setImages)
+        // ⚠️ 過濾掉 FB 封面：images 給 Threads 輪播圖庫用，FB 封面走獨立分區
+        .then((imgs) => setImages(imgs.filter((f) => f !== FB_COVER_FILENAME)))
         .catch(() => setImages([]))
     }
   }, [result?.output_dir])
@@ -120,10 +124,32 @@ export default function ResultPreview({ result, onReset }) {
         </div>
       )}
 
-      {/* 圖片 */}
-      {result?.output_dir && (
+      {/* Threads 圖片輪播 */}
+      {result?.output_dir && images.length > 0 && (
         <div className="rounded-2xl border border-paper-200/60 bg-paper-50/50 p-6 shadow-paper opacity-0 animate-fade-in-up animate-delay-500">
           <ImageGallery subdir={result.output_dir} images={images} />
+        </div>
+      )}
+
+      {/* Facebook 貼文（一文一圖）：封面 + 文章本文，與 Threads 分開呈現 */}
+      {result?.fb_article && (
+        <div className="rounded-2xl border border-brand/30 bg-brand/5 p-6 shadow-paper opacity-0 animate-fade-in-up animate-delay-500">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-display text-lg font-semibold text-ink-800">📘 Facebook 貼文</h3>
+            <CopyButton text={result.fb_article} label="複製文章" />
+          </div>
+
+          {/* 橫式封面圖 */}
+          {result?.fb_cover_image && (
+            <img
+              src={getImageUrl(result.output_dir, result.fb_cover_image)}
+              alt="Facebook 封面"
+              className="mb-4 w-full rounded-xl shadow-paper"
+            />
+          )}
+
+          {/* 文章本文 */}
+          <p className="whitespace-pre-wrap leading-relaxed text-ink-800">{result.fb_article}</p>
         </div>
       )}
 

@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 IMG_W, IMG_H = 1080, 1350
 
+# FB 封面：橫式 1200×630（FB 動態牆建議比例，蓋掉自動連結預覽 + 拉高觸及）
+FB_COVER_W, FB_COVER_H = 1200, 630
+
 TEMPLATE_DIR = Path(__file__).parent / "html_templates"
 
 # 相容舊版：保留 emoji 替換（某些 emoji Noto Sans 沒有字形）
@@ -233,31 +236,53 @@ def _render_html_string(slide: dict, index: int, total: int) -> str:
     )
 
 
-def render_slide(slide: dict, index: int, total: int, output_path: Path) -> None:
-    """渲染單張 slide 成 PNG。
+def _html_to_png(html: str, output_path: Path, width: int, height: int) -> None:
+    """把 HTML 字串用指定 viewport 截成 PNG（render_slide / render_fb_cover 共用）。
+
+    💡 抽出來的原因：直式 slide（1080×1350）與橫式 FB 封面（1200×630）只差
+       viewport，截圖流程（寫 _html debug 檔 → goto → screenshot）完全一樣。
 
     流程：
-    1. Jinja2 模板 + slide dict → HTML 字串
-    2. HTML 字串寫到 output_path 同目錄的 _html/ 子目錄（方便 debug）
-    3. Playwright goto file:// 該 HTML → 截圖為 PNG
+    1. HTML 字串寫到 output_path 同目錄的 _html/ 子目錄（file:// 字型載入需 file origin，也方便 debug）
+    2. Playwright goto file:// 該 HTML → 截圖為 PNG
     """
-    slide = _sanitize(slide)
-    html = _render_html_string(slide, index, total)
-
-    # 寫 HTML 到實體檔（file:// 字型載入需要 file origin）
     html_dir = output_path.parent / "_html"
     html_dir.mkdir(parents=True, exist_ok=True)
     html_path = html_dir / f"{output_path.stem}.html"
     html_path.write_text(html, encoding="utf-8")
 
     browser = _get_browser()
-    page = browser.new_page(viewport={"width": IMG_W, "height": IMG_H})
+    page = browser.new_page(viewport={"width": width, "height": height})
     try:
         # 💡 wait_until="networkidle" 確保 @font-face 載入完成才截圖
         page.goto(f"file://{html_path}", wait_until="networkidle")
         page.screenshot(path=str(output_path), omit_background=False, full_page=False)
     finally:
         page.close()
+
+
+def render_slide(slide: dict, index: int, total: int, output_path: Path) -> None:
+    """渲染單張 slide 成直式 PNG（1080×1350）。"""
+    slide = _sanitize(slide)
+    html = _render_html_string(slide, index, total)
+    _html_to_png(html, output_path, IMG_W, IMG_H)
+
+
+def render_fb_cover(cover: dict, output_path: Path) -> None:
+    """渲染 Facebook 橫式封面成 PNG（1200×630）。
+
+    cover dict 欄位：tag（可選）、title（必填）、subtitle（可選），
+    由 facebook_generator._validate_facebook_payload 正規化後傳入。
+    """
+    cover = _sanitize(cover)
+    template = _env.get_template("fb_cover.html.j2")
+    html = template.render(
+        tag=cover.get("tag", ""),
+        title=cover.get("title", ""),
+        subtitle=cover.get("subtitle", ""),
+        fonts_dir=str(FONTS_DIR),
+    )
+    _html_to_png(html, output_path, FB_COVER_W, FB_COVER_H)
 
 
 def generate_images(content: dict, output_subdir: str | None = None) -> list[Path]:

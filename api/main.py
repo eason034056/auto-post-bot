@@ -84,6 +84,9 @@ class GenerateResponse(BaseModel):
     short_url: str
     output_dir: str
     image_count: int
+    # Facebook 區塊（預設空字串，向下相容舊前端與 mock）
+    fb_article: str = ""
+    fb_cover_image: str = ""  # 封面圖檔名，固定 "fb_cover.png"，空字串代表沒產生
 
 
 class ImagesResponse(BaseModel):
@@ -151,6 +154,7 @@ def api_generate(req: GenerateRequest):
     try:
         if req.mock:
             from src.pipeline import _save_metadata
+            from src.html_image_generator import render_fb_cover
 
             subdir = datetime.now().strftime("%Y%m%d_%H%M%S")
             image_paths = generate_images(MOCK_CONTENT, output_subdir=subdir)
@@ -160,6 +164,14 @@ def api_generate(req: GenerateRequest):
             structure_name = MOCK_CONTENT.get("structure_name", "")
             content_strategy = MOCK_CONTENT.get("content_strategy", [])
             discussion_question = MOCK_CONTENT.get("discussion_question", "")
+            # mock 的 FB 區塊：渲染封面 + 帶出文章，讓前端 FB 分區在 mock 也能預覽
+            fb = MOCK_CONTENT.get("facebook", {})
+            fb_article = fb.get("article", "")
+            fb_discussion = fb.get("discussion_question", "")
+            fb_cover_image = ""
+            if fb.get("cover"):
+                render_fb_cover(fb["cover"], OUTPUT_DIR / subdir / "fb_cover.png")
+                fb_cover_image = "fb_cover.png"
             # mock 也存 metadata，讓使用者能測 log 按鈕
             _save_metadata(
                 OUTPUT_DIR / subdir,
@@ -173,6 +185,7 @@ def api_generate(req: GenerateRequest):
                     "pinned_comment_text": pinned_text,
                     "output_dir": OUTPUT_DIR / subdir,
                     "research_report": None,
+                    "facebook": fb,
                 },
                 topic=topic,
                 style_hint=req.style,
@@ -192,21 +205,13 @@ def api_generate(req: GenerateRequest):
             pinned_text = result["pinned_comment_text"]
             short_url_str = result["short_url"]
             image_paths = result["image_paths"]
+            fb = result.get("facebook", {})
+            fb_article = fb.get("article", "")
+            fb_discussion = fb.get("discussion_question", "")
+            fb_cover_image = "fb_cover.png" if fb_article else ""
 
-        # Save post_text.txt (same as CLI)
-        txt_path = OUTPUT_DIR / subdir / "post_text.txt"
-        txt_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(txt_path, "w", encoding="utf-8") as f:
-            f.write("🏗️ 貼文結構：\n")
-            f.write(f"{structure_name}\n")
-            if content_strategy:
-                f.write("策略節奏：" + " → ".join(content_strategy) + "\n")
-            if discussion_question:
-                f.write(f"引導討論：{discussion_question}\n\n")
-            f.write("📝 貼文開頭（鉤子）：\n")
-            f.write(f"{hook}\n\n")
-            f.write("📌 置頂留言內容：\n")
-            f.write(f"{pinned_text}\n")
+        _write_post_text(subdir, hook, structure_name, content_strategy,
+                         discussion_question, pinned_text, fb_article, fb_discussion)
 
         return GenerateResponse(
             hook=hook,
@@ -217,6 +222,8 @@ def api_generate(req: GenerateRequest):
             short_url=short_url_str,
             output_dir=subdir,
             image_count=len(image_paths),
+            fb_article=fb_article,
+            fb_cover_image=fb_cover_image,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -226,11 +233,16 @@ def api_generate(req: GenerateRequest):
 
 def _write_post_text(subdir: str, hook: str, structure_name: str,
                      content_strategy: list[str], discussion_question: str,
-                     pinned_text: str) -> None:
-    """寫 post_text.txt（與 CLI 一致），給使用者下載貼文文字用。"""
-    txt_path = OUTPUT_DIR / subdir / "post_text.txt"
-    txt_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(txt_path, "w", encoding="utf-8") as f:
+                     pinned_text: str, fb_article: str = "",
+                     fb_discussion_question: str = "") -> None:
+    """寫 Threads 的 post_text.txt（與 CLI 一致）；若有 FB 文章另寫 fb_post_text.txt。
+
+    💡 兩個平台分開存檔，使用者要發哪個平台就複製對應的 .txt，不會混在一起。
+    """
+    out_dir = OUTPUT_DIR / subdir
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(out_dir / "post_text.txt", "w", encoding="utf-8") as f:
         f.write("🏗️ 貼文結構：\n")
         f.write(f"{structure_name}\n")
         if content_strategy:
@@ -241,6 +253,16 @@ def _write_post_text(subdir: str, hook: str, structure_name: str,
         f.write(f"{hook}\n\n")
         f.write("📌 置頂留言內容：\n")
         f.write(f"{pinned_text}\n")
+
+    # Facebook：一文一圖，文字單獨存一份方便直接複製貼到 FB
+    if fb_article:
+        with open(out_dir / "fb_post_text.txt", "w", encoding="utf-8") as f:
+            f.write("📘 Facebook 貼文：\n\n")
+            f.write(f"{fb_article}\n")
+            if fb_discussion_question:
+                f.write(f"\n💬 引導討論：{fb_discussion_question}\n")
+            f.write("\n📌 置頂留言內容：\n")
+            f.write(f"{pinned_text}\n")
 
 
 @app.post("/api/generate-stream")
@@ -266,6 +288,7 @@ def api_generate_stream(req: GenerateRequest):
         if req.mock:
             try:
                 from src.pipeline import _save_metadata
+                from src.html_image_generator import render_fb_cover
 
                 subdir = datetime.now().strftime("%Y%m%d_%H%M%S")
                 yield sse({
@@ -279,6 +302,13 @@ def api_generate_stream(req: GenerateRequest):
                 structure_name = MOCK_CONTENT.get("structure_name", "")
                 content_strategy = MOCK_CONTENT.get("content_strategy", [])
                 discussion_question = MOCK_CONTENT.get("discussion_question", "")
+                fb = MOCK_CONTENT.get("facebook", {})
+                fb_article = fb.get("article", "")
+                fb_discussion = fb.get("discussion_question", "")
+                fb_cover_image = ""
+                if fb.get("cover"):
+                    render_fb_cover(fb["cover"], OUTPUT_DIR / subdir / "fb_cover.png")
+                    fb_cover_image = "fb_cover.png"
 
                 _save_metadata(
                     OUTPUT_DIR / subdir,
@@ -291,11 +321,12 @@ def api_generate_stream(req: GenerateRequest):
                         "pinned_comment_text": pinned_text,
                         "output_dir": OUTPUT_DIR / subdir,
                         "research_report": None,
+                        "facebook": fb,
                     },
                     topic=topic, style_hint=req.style,
                 )
                 _write_post_text(subdir, hook, structure_name, content_strategy,
-                                 discussion_question, pinned_text)
+                                 discussion_question, pinned_text, fb_article, fb_discussion)
 
                 yield sse({
                     "type": "complete",
@@ -307,6 +338,8 @@ def api_generate_stream(req: GenerateRequest):
                         "short_url": short_url_str,
                         "output_dir": subdir,
                         "image_count": len(image_paths),
+                        "fb_article": fb_article,
+                        "fb_cover_image": fb_cover_image,
                     },
                 })
             except Exception as e:  # noqa: BLE001
@@ -329,9 +362,13 @@ def api_generate_stream(req: GenerateRequest):
                 content_strategy = result.get("content_strategy", [])
                 discussion_question = result.get("discussion_question", "")
                 pinned_text = result["pinned_comment_text"]
+                fb = result.get("facebook", {})
+                fb_article = fb.get("article", "")
+                fb_discussion = fb.get("discussion_question", "")
+                fb_cover_image = "fb_cover.png" if fb_article else ""
 
                 _write_post_text(subdir, hook, structure_name, content_strategy,
-                                 discussion_question, pinned_text)
+                                 discussion_question, pinned_text, fb_article, fb_discussion)
 
                 yield sse({
                     "type": "complete",
@@ -344,6 +381,8 @@ def api_generate_stream(req: GenerateRequest):
                         "short_url": result["short_url"],
                         "output_dir": subdir,
                         "image_count": len(result["image_paths"]),
+                        "fb_article": fb_article,
+                        "fb_cover_image": fb_cover_image,
                     },
                 })
             else:

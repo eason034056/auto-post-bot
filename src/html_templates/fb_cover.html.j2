@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<style>
+  /* ── 字型載入（與 base.html.j2 相同，複用品牌字型） ──────────────
+     ⚠️ 這支模板「不 extends base」：base 的 html/body/.slide 寫死 1080×1350
+        直式，FB 封面是 1200×630 橫式，沿用會破版。所以自帶 canvas，
+        只複製跟尺寸無關的「品牌資產」（字型 + 設計 token）。 */
+  @font-face {
+    font-family: 'Noto Sans CJK TC';
+    src: url('file://{{ fonts_dir }}/NotoSansCJKtc-Regular.otf') format('opentype');
+    font-weight: 400; font-display: block;
+  }
+  @font-face {
+    font-family: 'Noto Sans CJK TC';
+    src: url('file://{{ fonts_dir }}/NotoSansCJKtc-Bold.otf') format('opentype');
+    font-weight: 700; font-display: block;
+  }
+  @font-face {
+    font-family: 'Noto Sans CJK TC';
+    src: url('file://{{ fonts_dir }}/NotoSansCJKtc-Black.otf') format('opentype');
+    font-weight: 900; font-display: block;
+  }
+
+  /* ── 設計系統 tokens（與 base 一致，維持品牌視覺語彙） ─────────── */
+  :root {
+    --bg: #FAFAF7;
+    --ink: #1a1a1a;
+    --ink-soft: #404040;
+    --ink-mute: #8a8a85;
+    --accent: #427A5B;
+    --hairline: #E5E5E0;
+
+    /* 橫式 padding：垂直比直式小很多（630 高塞不下 120px 上下留白） */
+    --pad-x: 96px;
+    --pad-y: 76px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 1200px;
+    height: 630px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Noto Sans CJK TC', -apple-system, sans-serif;
+    font-feature-settings: "palt";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
+  }
+
+  /* ── 封面容器 ──────────────────────────────────────────────── */
+  .cover {
+    width: 1200px;
+    height: 630px;
+    padding: var(--pad-y) var(--pad-x);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* 頂部 tag（沿用 base 的 eyebrow 語彙：放大字距 = 高級感） */
+  .eyebrow {
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: 0.32em;
+    color: var(--ink-mute);
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--hairline);
+    text-transform: uppercase;
+  }
+
+  /* 主區：垂直置中，左對齊 editorial */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .title {
+    font-size: 72px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    white-space: pre-line;
+    /* 💡 text-wrap: balance：標題若超過一行，瀏覽器自動平衡每行字數，
+           消滅「孤字單獨掉一行」的醜況（title 規定 ≤14 字，多半單行） */
+    text-wrap: balance;
+  }
+  .divider {
+    height: 1px;
+    width: 80px;
+    background: var(--accent);  /* 品牌綠唯一點綴 */
+    margin: 32px 0 28px;
+  }
+  .subtitle {
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+    white-space: pre-line;
+    text-wrap: balance;
+  }
+
+  /* 底部品牌列 */
+  .page-meta {
+    position: absolute;
+    bottom: 56px;
+    left: var(--pad-x);
+    right: var(--pad-x);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 20px;
+    letter-spacing: 0.2em;
+    color: var(--ink-mute);
+    font-weight: 400;
+  }
+  .page-meta .brand {
+    color: var(--accent);
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+  <div class="cover">
+    {% if tag %}<div class="eyebrow">{{ tag }}</div>{% endif %}
+
+    <div class="main">
+      <h1 class="title">{{ title }}</h1>
+      {% if subtitle %}
+        <div class="divider"></div>
+        <p class="subtitle">{{ subtitle }}</p>
+      {% endif %}
+    </div>
+
+    <div class="page-meta">
+      <span class="brand">青椒老師</span>
+      <span>家教媒合 · 新竹 | 台北</span>
+    </div>
+  </div>
+</body>
+</html>

@@ -13,7 +13,8 @@ from typing import Any
 
 from .config import OUTPUT_DIR
 from .content_generator import generate_content
-from .html_image_generator import _close_browser, render_slide
+from .facebook_generator import generate_facebook_content
+from .html_image_generator import _close_browser, render_fb_cover, render_slide
 from .researcher import is_research_available, run_research
 from .short_url import get_pinned_comment_text, shorten_url
 
@@ -42,6 +43,9 @@ def _save_metadata(
         "pinned_comment_text": result.get("pinned_comment_text", ""),
         "research_report": result.get("research_report"),
         "slides": result.get("content", {}).get("slides", []),
+        # Facebook 區塊：文章本文 + 封面 dict，供前端顯示與之後 Sheets 紀錄
+        "fb_article": result.get("facebook", {}).get("article", ""),
+        "fb_cover": result.get("facebook", {}).get("cover", {}),
         "output_dir": str(result.get("output_dir", "")),
         "logged_to_sheets": False,  # 由 /api/log-to-sheets 成功後改成 True
     }
@@ -76,8 +80,9 @@ def run_pipeline_streaming(
     """
     try:
         # 計算總階段數（research 是 optional）
+        # 階段：[research?] → Threads 內容 → FB 內容 → 圖片 → 短網址
         will_research = research and is_research_available()
-        total_phases = 4 if will_research else 3
+        total_phases = 5 if will_research else 4
         current_step = 0
 
         logger.info("Streaming pipeline 啟動：題目=%s, 深度研究=%s", topic, "啟用" if will_research else "停用")
@@ -130,6 +135,28 @@ def run_pipeline_streaming(
             "message": f"內容產生完成（{len(slides)} 張投影片）",
         }
 
+        # === Phase: Facebook 內容 ===
+        # 💡 與 Threads 共用同一份 research_report（research 只跑一次），
+        #    避免同題目重複付費跑深度研究。
+        current_step += 1
+        yield {
+            "type": "progress",
+            "phase": "fb_content",
+            "step": current_step,
+            "total": total_phases,
+            "message": "產生 Facebook 文章（Claude Sonnet）...",
+        }
+        fb_content = generate_facebook_content(
+            topic, style_hint=style_hint, research_context=research_report
+        )
+        yield {
+            "type": "progress",
+            "phase": "fb_content_done",
+            "step": current_step,
+            "total": total_phases,
+            "message": f"Facebook 文章完成（{len(''.join(fb_content['article'].split()))} 字）",
+        }
+
         # === Phase: Images（含 sub-progress）===
         current_step += 1
         subdir = output_subdir or datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -149,6 +176,7 @@ def run_pipeline_streaming(
             "message": f"產生圖片 0/{slides_total}（Playwright 啟動中）...",
         }
 
+        fb_cover_path = out_dir / "fb_cover.png"
         try:
             for i, slide in enumerate(slides):
                 out_path = out_dir / f"slide_{i + 1:02d}.png"
@@ -163,6 +191,20 @@ def run_pipeline_streaming(
                     "sub_total": slides_total,
                     "message": f"產生圖片 {i + 1}/{slides_total}（{slide.get('type', '')}）",
                 }
+
+            # FB 橫式封面（趁同一個 browser 還開著，省去重啟成本）
+            # ⚠️ fb_cover.png 不放進 image_paths：那是 Threads 輪播圖清單，
+            #    前端圖庫只該顯示 slides。FB 封面走 result["facebook"]["image_path"]。
+            render_fb_cover(fb_content["cover"], fb_cover_path)
+            yield {
+                "type": "progress",
+                "phase": "images",
+                "step": current_step,
+                "total": total_phases,
+                "sub_current": slides_total,
+                "sub_total": slides_total,
+                "message": "產生 Facebook 封面圖",
+            }
         finally:
             # ⚠️ 一定要關 browser，避免 Chromium 子進程殘留
             _close_browser()
@@ -191,6 +233,13 @@ def run_pipeline_streaming(
             "pinned_comment_text": pinned_text,
             "output_dir": OUTPUT_DIR / subdir,
             "research_report": research_report,
+            # Facebook 區塊：文章本文 + 封面 dict + 封面圖路徑
+            "facebook": {
+                "article": fb_content["article"],
+                "cover": fb_content["cover"],
+                "discussion_question": fb_content.get("discussion_question", ""),
+                "image_path": fb_cover_path,
+            },
         }
         _save_metadata(OUTPUT_DIR / subdir, result, topic, style_hint)
 
